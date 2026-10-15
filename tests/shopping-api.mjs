@@ -1,0 +1,71 @@
+import assert from 'node:assert/strict';
+const base=process.env.TEST_BASE_URL || 'http://localhost:5173';
+function client(){
+  const jar=new Map();
+  const request=async(path,method='GET',body,expected=200)=>{
+    const response=await fetch(base+'/api/'+path,{method,headers:{Cookie:[...jar].map(([key,value])=>key+'='+value).join('; '),'Content-Type':'application/json'},...(body?{body:JSON.stringify(body)}:{}),signal:AbortSignal.timeout(60000)});
+    for(const cookie of response.headers.getSetCookie()){const [key,...value]=cookie.split(';')[0].split('=');if(value.join('='))jar.set(key,value.join('='));else jar.delete(key);}
+    const data=await response.json();assert.equal(response.status,expected,JSON.stringify(data));return data;
+  };
+  return {request,jar,cookie:()=>[...jar].map(([key,value])=>key+'='+value).join('; ')};
+}
+const a=client(),b=client();
+const boot=await a.request('bootstrap'),other=await b.request('bootstrap');
+assert.equal(boot.demo,false);assert.equal(boot.cart.items.length,0);assert.ok(boot.carts.every(cart=>cart.data_source==='live'));
+await a.request('mode','POST',{mode:'demo'},400);
+await a.request('carts','POST',{name:'fake',demo:true},400);
+const cart=await a.request('carts','POST',{name:'Shopping acceptance'},201);
+const added=await a.request(`carts/${cart.id}/items`,'POST',{productId:'hcsr04',quantity:2});
+assert.equal(added.items.length,1);
+await a.request(`carts/${cart.id}/shipping`,'PUT',{storeId:'direnc',shippingPrice:1234,freeShippingThreshold:15000});
+const focused=await a.request(`bootstrap?cartId=${cart.id}`);
+assert.equal(focused.stores.find(store=>store.id==='direnc').shipping_base_price,1234);
+assert.equal(focused.stores.find(store=>store.id==='direnc').shipping_manual,true);
+assert.equal((await b.request('bootstrap')).stores.find(store=>store.id==='direnc').shipping_manual,undefined);
+const share=await a.request(`carts/${cart.id}/share`,'POST',{role:'viewer'});
+await b.request('share/'+share.url.split('/').pop(),'POST',{});
+await b.request(`carts/${cart.id}/shipping`,'PUT',{storeId:'direnc',shippingPrice:0,freeShippingThreshold:null},403);
+await a.request(`carts/${cart.id}/members/${other.user.id}`,'PATCH',{role:'editor'});
+await b.request(`carts/${cart.id}/shipping`,'PUT',{storeId:'direnc',shippingPrice:0,freeShippingThreshold:null});
+assert.equal((await a.request(`carts/${cart.id}`)).shippingSettings[0].shipping_price,0);
+const controller=new AbortController();
+const events=await fetch(`${base}/api/carts/${cart.id}/events`,{headers:{Cookie:b.cookie()},signal:controller.signal});
+assert.equal(events.status,200);assert.match(events.headers.get('content-type'),/text\/event-stream/);
+const reader=events.body.getReader(),decoder=new TextDecoder();
+let buffer='';
+const readUntil=async(test)=>{const deadline=Date.now()+10000;while(Date.now()<deadline){buffer+=decoder.decode((await reader.read()).value||new Uint8Array());if(test(buffer))return;}throw new Error('Event not delivered');};
+await readUntil(text=>text.includes('event: revision'));
+buffer='';
+const started=performance.now();
+const updated=await a.request(`carts/${cart.id}/items/${added.items[0].id}`,'PATCH',{quantity:4});
+await readUntil(text=>text.includes(updated.updated_at));
+const eventMs=Math.round(performance.now()-started);
+await a.request(`carts/${cart.id}/members/${other.user.id}`,'DELETE');
+buffer='';await readUntil(text=>text.includes('event: access-error'));
+controller.abort();
+await b.request(`carts/${cart.id}`,'GET',undefined,403);
+await a.request('alerts','POST',{productId:'hcsr04',kind:'price',targetPrice:10000});
+await a.request('alerts','POST',{productId:'hcsr04',kind:'stock'});
+await a.request('alerts','POST',{productId:'hcsr04',kind:'stock'});
+const tracked=await a.request(`bootstrap?cartId=${cart.id}`);
+assert.equal(tracked.stockAlerts.length,1);assert.equal(tracked.alerts.length,1);
+await b.request(`alerts/stock/${tracked.stockAlerts[0].id}`,'DELETE',undefined,404);
+await a.request(`alerts/stock/${tracked.stockAlerts[0].id}`,'PATCH',{enabled:false});
+assert.equal((await a.request('bootstrap')).stockAlerts[0].enabled,0);
+await a.request(`alerts/stock/${tracked.stockAlerts[0].id}`,'PATCH',{enabled:true});
+await a.request(`alerts/price/${tracked.alerts[0].id}`,'DELETE');
+await a.request('favorites','POST',{productId:'hcsr04'});
+// Local Sites mock auth: actual production never trusts this cookie.
+a.jar.set('__sites_local_auth','1');
+const member=await a.request(`bootstrap?cartId=${cart.id}`);
+assert.equal(member.user.authenticated,true);assert.notEqual(member.user.id,boot.user.id);
+assert.equal(member.cart.owner_id,member.user.id);assert.equal(member.cart.items[0].added_by,member.user.id);
+assert.ok(member.favorites.includes('hcsr04'));assert.equal(member.stockAlerts.length,1);
+const secondDevice=client();secondDevice.jar.set('__sites_local_auth','1');
+const same=await secondDevice.request(`bootstrap?cartId=${cart.id}`);
+assert.equal(same.user.id,member.user.id);assert.equal(same.cart.items[0].quantity,4);
+await a.request(`carts/${cart.id}/shipping?storeId=direnc`,'DELETE');
+assert.equal((await a.request(`carts/${cart.id}`)).shippingSettings.length,0);
+await a.request('url','POST',{url:'https://unrecognized.example/item',cartId:cart.id,quantity:1},400);
+console.log(JSON.stringify({passed:true,checks:32,realtimeMilliseconds:eventMs,accountTransfer:true,crossDevice:true,cartId:cart.id},null,2));
+

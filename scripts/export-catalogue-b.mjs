@@ -1,0 +1,50 @@
+import fs from 'node:fs/promises';
+import {existsSync,mkdirSync} from 'node:fs';
+import {resolve,dirname} from 'node:path';
+import {createRequire} from 'node:module';
+import {pathToFileURL} from 'node:url';
+import {DatabaseSync} from 'node:sqlite';
+import {spawnSync} from 'node:child_process';
+import {homedir} from 'node:os';
+const taskDir=resolve('work/catalogue-b'),outputDir=resolve('outputs/catalogue-b');mkdirSync(outputDir,{recursive:true});
+const runtime=process.env.CODEX_DEPENDENCIES||resolve(homedir(),'.cache/codex-runtimes/codex-primary-runtime/dependencies');
+if(!existsSync(resolve(taskDir,'node_modules')))throw new Error('Bundled spreadsheet dependency junction missing: work/catalogue-b/node_modules');
+const require=createRequire(resolve(taskDir,'builder.mjs'));
+const {Workbook,SpreadsheetFile}=await import(pathToFileURL(require.resolve('@oai/artifact-tool')).href);
+const db=new DatabaseSync(resolve(taskDir,'catalogue.sqlite'));
+const groups=db.prepare('SELECT category,COUNT(*) AS n,SUM(payload IS NOT NULL) AS verified FROM products WHERE active=1 GROUP BY category ORDER BY category').all();
+const workbook=Workbook.create(),summary=workbook.worksheets.add('Özet');
+summary.showGridLines=false;
+summary.getRange('A2').values=[['B aşaması · Kategori kataloğu']];summary.getRange('A2').format.font={name:'Arial',size:14,bold:true};
+summary.getRange('A4:C4').values=[['Kategori','Adres sayısı','Okunmuş fiyat']];
+summary.getRange(`A5:C${groups.length+4}`).values=groups.map(g=>[g.category,Number(g.n),Number(g.verified)]);
+summary.getRange('E4').values=[['Fiyatlar KDV dahil TL; kargo dahil değildir.']];
+summary.getRange('E6').values=[['Boş fiyat: henüz doğrulanmış okuma yok.']];
+summary.getRange('E8').values=[['Kontrol zamanı UTC; 12 saatten eski kayıtlar güncel değildir.']];
+summary.getRange('E10').values=[['URL başlığı ve kaynak kategorisi başlangıçta sitemap adresinden çıkarılır.']];
+summary.getRange('E12').values=[['Robotzade/Robitshop toplayıcısı bilgisayar açıkken çalışır.']];
+summary.getRange('A:A').format.columnWidth=30;summary.getRange('B:C').format.columnWidth=19;summary.getRange('E:E').format.columnWidth=88;
+summary.getRange('A4:C4').format={fill:'#203748',font:{color:'#FFFFFF',bold:true,name:'Arial',size:10},rowHeight:27};
+const headers=['Mağaza','Ürün başlığı','Kategori','Ürün fiyatı (TL)','Stok','Son kontrol (UTC)','Paket adedi','Satış adımı','En az adet','Ürün URL','Okuma durumu','Kaynak kategorisi'];
+const sheetNames=[];
+for(const group of groups){
+ const name=String(group.category).replace(/[\\/\[\]:*?]/g,' ').slice(0,31);sheetNames.push(name);
+ const sheet=workbook.worksheets.add(name);sheet.showGridLines=false;sheet.freezePanes.freezeRows(1);sheet.freezePanes.freezeColumns(2);
+ sheet.getRange('A1:L1').values=[headers];sheet.getRange('A1:L1').format={fill:'#203748',font:{name:'Arial',size:10,color:'#FFFFFF',bold:true},rowHeight:28};
+ const rows=db.prepare('SELECT * FROM products WHERE active=1 AND category=? ORDER BY url LIMIT 18').all(group.category);
+ const values=rows.map(row=>{const p=row.payload?JSON.parse(row.payload).product:null;return [row.store_id,row.name,row.category,p?.price?p.price/100:null,p?.stockStatus||'',row.checked_at?new Date(row.checked_at):null,p?.packageQuantity||null,p?.orderStep||null,p?.minimumOrderQuantity||null,row.url,row.error||(!p?'Fiyat okunmadı · URL başlığı':Date.now()-Date.parse(row.checked_at)>=43200000?'Eski kayıt':'Doğrulanmış fiyat'),row.source_category];});
+ sheet.getRange(`A2:L${values.length+1}`).values=values;
+ for(const [col,width] of [['A',17],['B',60],['C',27],['D',20],['E',19],['F',23],['G',17],['H',17],['I',17],['J',72],['K',48],['L',32]])sheet.getRange(`${col}:${col}`).format.columnWidth=width;
+ sheet.getRange(`D2:D${values.length+1}`).setNumberFormat('#,##0.00');sheet.getRange(`F2:F${values.length+1}`).setNumberFormat('dd.mm.yyyy hh:mm');
+ sheet.getRange(`A2:L${values.length+1}`).format.font={name:'Arial',size:10};
+ const view=await workbook.render({sheetName:name,range:'A1:F9',scale:1});await fs.writeFile(resolve(taskDir,`preview-${sheetNames.length}.png`),new Uint8Array(await view.arrayBuffer()));
+}
+workbook.recalculate();
+console.log((await workbook.inspect({kind:'table',range:'Özet!A4:C18',include:'values',tableMaxRows:15,tableMaxCols:3,maxChars:2400})).ndjson);
+const view=await workbook.render({sheetName:'Özet',range:'A1:F18',scale:1});await fs.writeFile(resolve(taskDir,'preview-summary.png'),new Uint8Array(await view.arrayBuffer()));
+const template=resolve(taskDir,'template.xlsx');await (await SpreadsheetFile.exportXlsx(workbook)).save(template);db.close();
+// Artifact Tool has no streaming export API. Stream the data-only worksheet
+// bodies into its styled workbook using standard OOXML and Python's zipfile.
+const output=resolve(outputDir,'EN_UCUZU_BURADA_B_KATEGORI_KATALOGU.xlsx');
+const result=spawnSync(resolve(runtime,'python/python.exe'),[resolve('scripts/stream-catalogue-xlsx.py'),resolve(taskDir,'catalogue.sqlite'),template,output],{encoding:'utf8',maxBuffer:100000});
+if(result.status!==0)throw new Error(result.stderr||result.stdout);console.log(result.stdout.trim());
