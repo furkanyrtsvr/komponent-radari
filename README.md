@@ -47,10 +47,10 @@ Katalog, 3 Ekim 2026 tarihli site haritalarından 1.058.051 adres içerir. **Bu 
 
 ## Hızlı başlangıç
 
-Node.js >= 22.13.0 ve npm gerekir. ZIP içindeki `en-ucuzu-burada/` klasöründe:
+Node.js 24 ve npm gerekir. ZIP içindeki `en-ucuzu-burada/` klasöründe:
 
 ```sh
-npm ci
+npm run install:ci
 npm run build
 ```
 

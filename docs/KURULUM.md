@@ -1,9 +1,9 @@
 # Kurulum ve çalıştırma
 
-Node.js >= 22.13.0, npm ve HTTPS erişimi gerekir. ZIP’in `en-ucuzu-burada/` klasöründe:
+Node.js 24, npm ve HTTPS erişimi gerekir. ZIP’in `en-ucuzu-burada/` klasöründe:
 
 ```sh
-npm ci
+npm run install:ci
 npm run build
 ```
 
