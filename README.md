@@ -6,6 +6,27 @@ Amaç, aynı parçayı farklı adlarla satan mağazaları bulmak ve bir sepeti h
 
 [Yayımlanan uygulama](https://en-ucuzu-burada.furkanyurtsev6.chatgpt.site/)
 
+## Görseller
+
+Uygulama yerelde çalıştırılarak alınan dört ekran görüntüsü.
+
+### Akıllı alışveriş sepeti
+
+![Akıllı alışveriş sepeti](docs/images/01-smart-basket.jpg)
+
+### Ürün keşfi ve katalog
+
+![Ürün keşfi ve katalog](docs/images/02-product-discovery.jpg)
+
+### Mağaza ve kargo ayarları
+
+![Mağaza ve kargo ayarları](docs/images/03-store-settings.jpg)
+
+### Manuel ürün ihtiyacı ekleme
+
+![Manuel ürün ihtiyacı ekleme](docs/images/04-manual-item.jpg)
+
+
 ## Özellikler
 
 - Ürün adı veya desteklenen mağazanın HTTPS ürün bağlantısıyla arama, karşılaştırma ve sepete ekleme.
