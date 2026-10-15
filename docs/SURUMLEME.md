@@ -1,5 +1,7 @@
 # Sürüm yayınlama
 
+GitHub çalıştırıcısı Node 24 kullanır. Kurulum `npm run install:ci` ile isteğe bağlı platform paketlerini de alır. Npm Linux workerd ikilisini sessizce atlamışsa, CI derlemeden önce yalnız kilit dosyasındaki aynı sürümü resmi npm adresinden indirir, SHA-512 bütünlüğünü doğrular ve ikilinin çalışabildiğini kontrol eder. Windows akışı değiştirilmez.
+
 `main` dalına gönderilen değişiklikler GitHub Actions tarafından kontrol edilir. Kontroller başarılıysa otomatik bir GitHub Release yayımlanır. Pull request kontrolleri sürüm yayımlamaz.
 
 - İlk sürüm kaynak sürümünü kullanır (package.json veya VERSION).
