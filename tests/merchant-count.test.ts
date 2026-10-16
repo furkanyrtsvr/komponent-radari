@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {optimize} from '../lib/optimizer';
-import {demoOffers,storeCatalog} from '../lib/catalog';
-import type {CartItem,Offer,Store} from '../lib/domain';
+import {optimize} from '../src/lib/optimizer';
+import {demoOffers,storeCatalog} from '../src/lib/catalog';
+import type {CartItem,Offer,Store} from '../src/lib/domain';
 const item=(id:string):CartItem=>({id,cart_id:'audit',canonical_product_id:id,quantity:1,added_by:'audit',notes:'',allow_alternative:0,preferred_manufacturer:'',maximum_unit_price:null,created_at:''});
 const store=(id:string,shipping=8000,threshold:number|null=null):Store=>({...storeCatalog[0],id,enabled:1,shipping_base_price:shipping,free_shipping_threshold:threshold});
 const offer=(product:string,merchant:string,cost:number):Offer=>({...demoOffers[0],id:product+'-'+merchant,canonical_product_id:product,store_id:merchant,price_gross:cost,package_quantity:1,unit_price:cost,stock_quantity:null,product_url:`https://${merchant}.test/${product}`});

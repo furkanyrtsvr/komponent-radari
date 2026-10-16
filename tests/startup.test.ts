@@ -2,9 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {DatabaseSync} from "node:sqlite";
 import {readFileSync,readdirSync} from "node:fs";
-import {startupGate,requestError} from "../lib/startup";
-import {seedEntries,seedProducts,seedReady,changedDemoOffers} from "../lib/seed-plan";
-import {demoOffers,storeCatalog} from "../lib/catalog";
+import {startupGate,requestError} from "../src/lib/startup";
+import {seedEntries,seedProducts,seedReady,changedDemoOffers} from "../src/lib/seed-plan";
+import {demoOffers,storeCatalog} from "../src/lib/catalog";
 
 test("cold initialization shares one attempt and a failed attempt can be retried",async()=>{
   let calls=0;

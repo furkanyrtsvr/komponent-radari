@@ -1,9 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {applyDefaultShipping, defaultShipping} from "../lib/default-shipping";
-import {applyCartShipping} from "../lib/cart-shipping";
-import {storeCatalog, demoOffers} from "../lib/catalog";
-import {linkQuotes} from "../lib/link-quotes";
+import {applyDefaultShipping, defaultShipping} from "../src/lib/default-shipping";
+import {applyCartShipping} from "../src/lib/cart-shipping";
+import {storeCatalog, demoOffers} from "../src/lib/catalog";
+import {linkQuotes} from "../src/lib/link-quotes";
 
 test("all screenshot defaults appear on first use and custom cart values survive reset", () => {
   assert.equal(defaultShipping.length, 20);

@@ -2,9 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import jpeg from 'jpeg-js';
 import {encode as encodePng} from 'fast-png';
-import {fingerprintPixels,fingerprintImage,compareFingerprints} from '../lib/visual-match';
-import {safeImageUrl,visualMatches} from '../lib/server/visual-match';
-import {demoOffers,products,storeCatalog} from '../lib/catalog';
+import {fingerprintPixels,fingerprintImage,compareFingerprints} from '../src/lib/visual-match';
+import {safeImageUrl,visualMatches} from '../src/lib/server/visual-match';
+import {demoOffers,products,storeCatalog} from '../src/lib/catalog';
 function photograph(width:number,height:number){
  const data=new Uint8Array(width*height*4);data.fill(255);
  for(let y=0;y<height;y++)for(let x=0;x<width;x++)if(x>width*.15&&x<width*.85&&y>height*.2&&y<height*.8){const i=(y*width+x)*4;data[i]=Math.round(25+150*x/width);data[i+1]=Math.round(30+150*y/height);data[i+2]=Math.round(40+100*Math.sin(x/width*10));}

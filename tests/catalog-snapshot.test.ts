@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {snapshotUsable,validateSnapshot,snapshotProduct,SNAPSHOT_TTL_MS,SNAPSHOT_UPSERT_SQL,upgradeSnapshotReader} from '../lib/catalog-snapshot';
+import {snapshotUsable,validateSnapshot,snapshotProduct,SNAPSHOT_TTL_MS,SNAPSHOT_UPSERT_SQL,upgradeSnapshotReader} from '../src/lib/catalog-snapshot';
 import {DatabaseSync} from 'node:sqlite';
-import {isFresh,quoteOffer,LIVE_TTL_MS} from '../lib/pricing';
-import {demoOffers} from '../lib/catalog';
+import {isFresh,quoteOffer,LIVE_TTL_MS} from '../src/lib/pricing';
+import {demoOffers} from '../src/lib/catalog';
 const at=Date.parse('2026-10-03T12:00:00.000Z');
 const record={storeId:'robotzade',checkedAt:'2026-10-03T11:00:00.000Z',product:{url:'https://www.robotzade.com/urun/hc-sr04-ultrasonik-sensor',name:'HC-SR04 Ultrasonik Sensör',mpn:'HC-SR04',model:'HC-SR04',manufacturer:'',image:null,price:3900,currency:'TRY',vatIncluded:true,vatRate:20,packageQuantity:1,stockStatus:'in_stock',stockQuantity:5,specifications:'{}',warnings:[],quantityVerified:true,minimumOrderQuantity:1,orderStep:1}};
 const stores=[{id:'robotzade',domain:'www.robotzade.com'}];

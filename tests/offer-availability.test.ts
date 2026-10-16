@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {offerAvailability} from '../lib/offer-availability';
-import {demoOffers} from '../lib/catalog';
+import {offerAvailability} from '../src/lib/offer-availability';
+import {demoOffers} from '../src/lib/catalog';
 const at=Date.parse('2026-10-03T12:00:00Z');
 const offer={...demoOffers[0],source:'live',price_gross:29059,package_quantity:1,minimum_order_quantity:1,order_step:1,price_tiers:'[]',stock_status:'in_stock',stock_quantity:null,last_error:null,last_checked_at:new Date(at-12*3600000).toISOString()};
 test('XR2206 with dated stocked offers shows its previous price instead of claiming no offer',()=>{

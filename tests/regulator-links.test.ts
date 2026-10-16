@@ -1,11 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {parseTsoftProduct} from '../stores/tsoft';
-import {catalogIdentity,canMergeCatalogProducts,relatedRegulatorModule} from '../lib/catalog-identity';
-import {catalogueSources} from '../lib/catalog-sources';
-import {validateRegulatorOffers} from '../lib/regulator-offers';
-import {demoOffers,products} from '../lib/catalog';
+import {parseTsoftProduct} from '../src/stores/tsoft';
+import {catalogIdentity,canMergeCatalogProducts,relatedRegulatorModule} from '../src/lib/catalog-identity';
+import {catalogueSources} from '../src/lib/catalog-sources';
+import {validateRegulatorOffers} from '../src/lib/regulator-offers';
+import {demoOffers,products} from '../src/lib/catalog';
 const direnc={name:'LM2596 Ayarlanabilir Voltaj Düşürücü Güç Modülü (4-35V Giriş - 1-30V Çıkış)'};
 const mini={name:'LM2596 Mini Ayarlanabilir Voltaj Düşürücü Regülatör Kartı 3A (4-35V ile 1.25-30V)'};
 test('a fresh old multi-output quote cannot leak through after the identity rule changes',()=>{

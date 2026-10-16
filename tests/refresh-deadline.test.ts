@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {waitForSignal,fairRefreshQueue} from "../lib/async-deadline";
-import {JsonLdAdapter} from "../stores/base";
+import {waitForSignal,fairRefreshQueue} from "../src/lib/async-deadline";
+import {JsonLdAdapter} from "../src/stores/base";
 
 test("a cancelled caller stops waiting for shared robots without cancelling another caller",async()=>{
   const controller=new AbortController();

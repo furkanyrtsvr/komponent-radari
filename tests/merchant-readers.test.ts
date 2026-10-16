@@ -1,10 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {parseRobizProduct} from "../stores/robiz";
-import {parseTsoftProduct as parseScopedTsoftProduct} from "../stores/tsoft";
+import {parseRobizProduct} from "../src/stores/robiz";
+import {parseTsoftProduct as parseScopedTsoftProduct} from "../src/stores/tsoft";
 const parseTsoftProduct=(html:string,url:string)=>parseScopedTsoftProduct(`<div id="product-right">${html}</div>`,url);
-import {parseKomponentciProduct} from "../stores/komponentci";
-import {parseMotorobitProduct} from "../stores/motorobit";
+import {parseKomponentciProduct} from "../src/stores/komponentci";
+import {parseMotorobitProduct} from "../src/stores/motorobit";
 const cable="40 Pin Erkek-Erkek Jumper Kablo 20cm";
 const ld=(name:string,price:string)=>`<h1>${name}</h1><script type="application/ld+json">${JSON.stringify({'@type':'Product',name,offers:{price,priceCurrency:'TRY',availability:'https://schema.org/InStock'}})}</script>`;
 test("Robiz gross price survives unrelated net VAT labels, with its explicit volume tier",()=>{

@@ -23,8 +23,9 @@
       }
     ],
     "paths": {
+      "@/public/*": ["./public/*"],
       "@/*": [
-        "./*"
+        "./src/*"
       ]
     },
     "types": [
@@ -42,7 +43,6 @@
   ],
   "exclude": [
     "node_modules",
-    "examples",
     "work",
     "outputs"
   ]

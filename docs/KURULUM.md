@@ -75,4 +75,4 @@ Bağımsız Cloudflare yayını kendi D1 bağını, sırları ve güvenilir üye
 | `npm run typecheck` | TypeScript kontrolü |
 | `npm run lint` | ESLint |
 
-Windows’ta npm sarmalayıcısı yol hatası verirse kurulu bağımlılıklarla `node scripts/run-framework.mjs dev`; derleme için `node scripts/build-catalog-matches.mjs` ve `node scripts/run-framework.mjs build` kullanılabilir.
+Windows’ta npm sarmalayıcısı yol hatası verirse kurulu bağımlılıklarla `node scripts/run-framework.mjs dev`; derleme için `node scripts/catalog/build-catalog-matches.mjs` ve `node scripts/run-framework.mjs build` kullanılabilir.

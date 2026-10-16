@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { optimize, allocateCosts } from "../lib/optimizer";
+import { optimize, allocateCosts } from "../src/lib/optimizer";
 import {
   normalizePrice,
   matchProduct,
@@ -8,21 +8,21 @@ import {
   type CartItem,
   type Offer,
   type Store,
-} from "../lib/domain";
+} from "../src/lib/domain";
 import {
   products,
   demoOffers,
   storeCatalog,
   demoQuantities,
-} from "../lib/catalog";
-import { parseBomRows, csvCell } from "../lib/bom";
+} from "../src/lib/catalog";
+import { parseBomRows, csvCell } from "../src/lib/bom";
 import {
   parseProduct,
   safeStoreUrl,
   robotsAllowed,
   parsePrice,
-} from "../stores/base";
-import { catalogIdentity } from "../lib/catalog-identity";
+} from "../src/stores/base";
+import { catalogIdentity } from "../src/lib/catalog-identity";
 const item = (pid: string, q = 1, person = "a"): CartItem => ({
   id: `${pid}-${person}`,
   cart_id: "cart",

@@ -1,15 +1,15 @@
 import test from "node:test";
-import { parseRobizProduct } from "../stores/robiz";
+import { parseRobizProduct } from "../src/stores/robiz";
 import assert from "node:assert/strict";
-import { parseTsoftProduct } from "../stores/tsoft";
-import { parseMotorobitProduct } from "../stores/motorobit";
-import { quoteOffer, isFresh, LIVE_TTL_MS } from "../lib/pricing";
-import { optimize } from "../lib/optimizer";
-import { demoOffers, storeCatalog } from "../lib/catalog";
-import type { CartItem } from "../lib/domain";
-import { parseBomRows } from "../lib/bom";
-import { products } from "../lib/catalog";
-import { robotsAllowed } from "../stores/base";
+import { parseTsoftProduct } from "../src/stores/tsoft";
+import { parseMotorobitProduct } from "../src/stores/motorobit";
+import { quoteOffer, isFresh, LIVE_TTL_MS } from "../src/lib/pricing";
+import { optimize } from "../src/lib/optimizer";
+import { demoOffers, storeCatalog } from "../src/lib/catalog";
+import type { CartItem } from "../src/lib/domain";
+import { parseBomRows } from "../src/lib/bom";
+import { products } from "../src/lib/catalog";
+import { robotsAllowed } from "../src/stores/base";
 const resistor = {
   ...demoOffers[0],
   canonical_product_id: "res",

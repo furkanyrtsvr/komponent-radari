@@ -1,12 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {parseTsoftProduct} from '../stores/tsoft';
-import {parseRobocomboProduct} from '../stores/robocombo';
-import {parseOzdisanProduct} from '../stores/ozdisan';
-import {validateSnapshot} from '../lib/catalog-snapshot';
-import {storeCatalog,demoOffers} from '../lib/catalog';
-import {quoteOffer} from '../lib/pricing';
+import {parseTsoftProduct} from '../src/stores/tsoft';
+import {parseRobocomboProduct} from '../src/stores/robocombo';
+import {parseOzdisanProduct} from '../src/stores/ozdisan';
+import {validateSnapshot} from '../src/lib/catalog-snapshot';
+import {storeCatalog,demoOffers} from '../src/lib/catalog';
+import {quoteOffer} from '../src/lib/pricing';
 import {load} from 'cheerio';
 const fixture=(name:string)=>readFileSync(`tests/fixtures/merchants/${name}.html`,'utf8');
 test('a zero-based merchant discount range does not discard the observed XR2206 price',()=>{

@@ -1,12 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {parseSammProduct} from '../stores/samm';
-import {parseKomponentciProduct} from '../stores/komponentci';
-import {parseOzdisanProduct} from '../stores/ozdisan';
-import {quoteOffer} from '../lib/pricing';
-import {demoOffers} from '../lib/catalog';
-import {parseTsoftProduct} from '../stores/tsoft';
+import {parseSammProduct} from '../src/stores/samm';
+import {parseKomponentciProduct} from '../src/stores/komponentci';
+import {parseOzdisanProduct} from '../src/stores/ozdisan';
+import {quoteOffer} from '../src/lib/pricing';
+import {demoOffers} from '../src/lib/catalog';
+import {parseTsoftProduct} from '../src/stores/tsoft';
 const fixture=(name:string)=>readFileSync(new URL(`./fixtures/merchants/${name}.html`,import.meta.url),'utf8');
 const sammUrl='https://market.samm.com/40-li-erkek-erkek-jumper-seti';
 const komUrls={hcsr04:'https://www.komponentci.net/hc-sr04-arduino-ultrasonik-mesafe-sensoru-pmu245',sg90:'https://www.komponentci.net/sg90-rc-mini-servo-motor-micro-servo-motor-sg90-9g-180-pmu232',res10:'https://www.komponentci.net/1k-1-4w-direnc-10-adet-pmu7633',res5000:'https://www.komponentci.net/1k-1-4w-direnc-5000-adet-pmu12'};

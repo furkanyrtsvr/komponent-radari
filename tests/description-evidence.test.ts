@@ -1,13 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {productEvidence,matchingName,nameMatchScore,nameCandidateKeys} from '../public/catalog/product-identity.js';
-import {variantConflict,matchesCatalogRequirement,catalogIdentity} from '../lib/catalog-identity';
-import {productRole} from '../lib/product-role';
-import {cartOffers} from '../lib/cart-offers';
-import {products,demoOffers} from '../lib/catalog';
-import {offerAvailability} from '../lib/offer-availability';
-import {validateProductFacts} from '../stores/validate-product-facts';
-import {parseProduct} from '../stores/base';
+import {variantConflict,matchesCatalogRequirement,catalogIdentity} from '../src/lib/catalog-identity';
+import {productRole} from '../src/lib/product-role';
+import {cartOffers} from '../src/lib/cart-offers';
+import {products,demoOffers} from '../src/lib/catalog';
+import {offerAvailability} from '../src/lib/offer-availability';
+import {validateProductFacts} from '../src/stores/validate-product-facts';
+import {parseProduct} from '../src/stores/base';
 const facts=(name:string,description:string,properties:object[]=[])=>({name,specifications:JSON.stringify({description,properties})});
 const examples=[
  ['LM2596 Reg.','LM2596 Ayarlanabilir Voltaj Regülatör Modülü','regulator'],

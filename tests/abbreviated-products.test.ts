@@ -1,15 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {catalogIdentity,matchesCatalogRequirement,variantConflict} from '../lib/catalog-identity';
+import {catalogIdentity,matchesCatalogRequirement,variantConflict} from '../src/lib/catalog-identity';
 import {potentiometerDetails,nameMatchScore,nameCandidateKeys,queryMatchesCatalogTitle,matchingName} from '../public/catalog/product-identity.js';
-import {productRole} from '../lib/product-role';
-import {catalogueSources} from '../lib/catalog-sources';
-import {cartOffers} from '../lib/cart-offers';
-import {products,demoOffers} from '../lib/catalog';
-import {offerAvailability} from '../lib/offer-availability';
-import {parseProduct} from '../stores/base';
-import {validateProductFacts} from '../stores/validate-product-facts';
+import {productRole} from '../src/lib/product-role';
+import {catalogueSources} from '../src/lib/catalog-sources';
+import {cartOffers} from '../src/lib/cart-offers';
+import {products,demoOffers} from '../src/lib/catalog';
+import {offerAvailability} from '../src/lib/offer-availability';
+import {parseProduct} from '../src/stores/base';
+import {validateProductFacts} from '../src/stores/validate-product-facts';
 const facts=(name:string,description='')=>({name,specifications:JSON.stringify({description})});
 const source=facts('1K Potans',"1K Potansiyomtre1K Potans, üzerindeki mili çevirdikçe değeri değişen ayarlı direnç çeşitlerindendir. Orta bacak ile herhangi bir bacağın arasındaki direnç 0 Ohm'ken diğer bacakla arasındaki direnç maksimum seviyededir.");
 
@@ -71,7 +71,7 @@ test('source discovery reaches real cross-store 1K pages without fixed resistors
  const sources=catalogueSources(source,true);
  for(const store of ['direnc','motorobit','robotistan','robo90','komponentci','robotsepeti','robolink','robocombo','robotronik'])assert.ok(sources.some(row=>row.storeId===store),store);
  assert.ok(!sources.some(row=>/trimpot|10k|100k/.test(row.url)));
- const index=JSON.parse(readFileSync('lib/generated/catalog-matches.json','utf8'));
+ const index=JSON.parse(readFileSync('src/lib/generated/catalog-matches.json','utf8'));
  assert.ok(index['candidate:potentiometer:1000:rotary'].length>=9);
 });
 

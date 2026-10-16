@@ -1,12 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {parseIdeasoftProduct,IdeasoftAdapter} from '../stores/ideasoft';
-import {parseRobocomboProduct} from '../stores/robocombo';
-import {parseRobotronikProduct} from '../stores/robotronik';
-import {inlineObject} from '../stores/inline-data';
-import {storeCatalog,demoOffers} from '../lib/catalog';
-import {quoteOffer} from '../lib/pricing';
+import {parseIdeasoftProduct,IdeasoftAdapter} from '../src/stores/ideasoft';
+import {parseRobocomboProduct} from '../src/stores/robocombo';
+import {parseRobotronikProduct} from '../src/stores/robotronik';
+import {inlineObject} from '../src/stores/inline-data';
+import {storeCatalog,demoOffers} from '../src/lib/catalog';
+import {quoteOffer} from '../src/lib/pricing';
 const fixture=(id:string)=>readFileSync(new URL(`./fixtures/merchants/${id}.html`,import.meta.url),'utf8');
 const urls={robotzade:'https://www.robotzade.com/urun/sg90-2-eksen-mikro-pan-tilt-unitesi',robitshop:'https://www.robitshop.com/urun/ultrasonik-mesafe-sensoru-hc-sr04',robocombo:'https://www.robocombo.com/Ultrasonik-Mesafe-Sensoru-HC-SR04,PR-1041.html',robotronik:'https://www.robotronik.com.tr/tp5000-42-v---36-v-1a-lityum-pil-sarj-modulu-a0993'};
 

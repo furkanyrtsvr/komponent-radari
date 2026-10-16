@@ -30,6 +30,7 @@ Uygulama yerelde çalıştırılarak alınan dört ekran görüntüsü.
 
 
 
+
 ## Özellikler
 
 - Ürün adı veya desteklenen mağazanın HTTPS ürün bağlantısıyla arama, karşılaştırma ve sepete ekleme.
@@ -72,26 +73,37 @@ Adres: `http://localhost:5173`. Misafir oturumu için harici anahtar gerekmez. P
 B toplayıcısı SQLite kuyruğunda ilerler. Bilinen fiyatlara ve sepet bağlantılarına öncelik veren Windows komutu:
 
 ```powershell
-./scripts/run-catalogue-b.ps1 -Limit 250 -KnownOnly
+./scripts/catalog/run-catalogue-b.ps1 -Limit 250 -KnownOnly
 ```
 
 Mağaza başına en fazla 250 adres ve robots.txt bekleme aralıkları korunur. Robotzade/Robitshop için normal bilgisayar ağından okuma ve arşiv aktarımı desteklenir; yayın sunucusundaki engel her ortamda canlı erişim sağlandığı anlamına gelmez. [B arşivi rehberi](docs/B_FIYAT_ARSIVI.md).
 
 ## Teknoloji ve yapı
 
+[Belge dizini](docs/README.md) · [Bakım araçları](scripts/README.md)
+
 TypeScript, React 19, Next.js uyumlu App Router, vinext/Vite, Tailwind CSS; Cloudflare Workers ve D1/SQLite. Supabase/PostgreSQL alternatif veri katmanıdır. Para tutarları kuruş tamsayılarıyla hesaplanır.
 
 ```text
-app/                   Sayfalar ve API giriş noktası
-components/            Çalışma alanı, sepet ve yönetim arayüzleri
-lib/                   Kimlik, fiyat, optimizasyon ve sunucu işlemleri
-stores/                Mağazaya özgü okuyucular
-public/catalog/        Adres dizini ve ortak eşleştirme modülleri
-db/ ve drizzle/        D1 şeması ve geçişleri
-supabase/migrations/   Alternatif PostgreSQL şeması
-scripts/               Dizin, arşiv, doğrulama ve Excel araçları
-tests/                 Testler ve tarihli mağaza parçaları
-docs/                  Kurulum, mimari ve paylaşım belgeleri
+src/                   Uygulamanın kaynak kodu
+  app/                 Sayfalar ve API uçları
+  components/          Arayüz bileşenleri
+  hooks/               React yardımcıları
+  lib/                 Fiyat, eşleştirme ve sunucu işlemleri
+  stores/              Mağaza okuyucuları
+  db/                  Veritabanı şeması
+public/                Statik dosyalar ve mağaza adres kataloğu
+scripts/               Kurulum, derleme ve bakım araçları
+  catalog/             Katalog toplama, eşleştirme ve Excel araçları
+  db/                  Veritabanı dönüştürme aracı
+  sites/               Sites derleme entegrasyonu
+tests/                 Otomatik testler ve tarihli mağaza parçaları
+drizzle/               D1 / SQLite geçişleri
+supabase/              Alternatif PostgreSQL geçişleri
+docs/                  Kullanım ve geliştirme rehberleri
+  archive/             Eski doğrulama raporları
+  images/              README ekran görüntüleri
+vendor/                Üçüncü taraf stil dosyası ve lisansı
 ```
 
 ## Kontroller
@@ -102,7 +114,7 @@ npm run typecheck
 npm run build
 ```
 
-4 Ekim 2026 kaynak sürümünde 175 otomatik test, tür kontrolü ve üretim derlemesi geçti. Kayıtlı 2.225 gerçek mağaza gözlemi yeniden değerlendirildi; bu, 4 Ekim’de 2.225 sayfanın yeniden okunduğu anlamına gelmez. [Sürüm notları](docs/SURUM_NOTLARI.md), [ayrıntılı rapor](VERIFICATION_2026-10-03_DESCRIPTION_EVIDENCE.md).
+4 Ekim 2026 kaynak sürümünde 175 otomatik test, tür kontrolü ve üretim derlemesi geçti. Kayıtlı 2.225 gerçek mağaza gözlemi yeniden değerlendirildi; bu, 4 Ekim’de 2.225 sayfanın yeniden okunduğu anlamına gelmez. [Sürüm notları](docs/SURUM_NOTLARI.md), [ayrıntılı rapor](docs/archive/VERIFICATION_2026-10-03_DESCRIPTION_EVIDENCE.md).
 
 Ağ kullanan entegrasyon testleri ayrı yerel sunucu ister ve test sepetleri oluşturabilir. [Katkı rehberi](CONTRIBUTING.md).
 

@@ -1,12 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {demoOffers,storeCatalog} from '../lib/catalog';
-import {hasObservedPrice} from '../lib/pricing';
-import {offerAvailability} from '../lib/offer-availability';
-import {optimize} from '../lib/optimizer';
-import {linkQuotes} from '../lib/link-quotes';
-import {distinctScenarios} from '../lib/scenario-display';
-import type {Scenario} from '../lib/domain';
+import {demoOffers,storeCatalog} from '../src/lib/catalog';
+import {hasObservedPrice} from '../src/lib/pricing';
+import {offerAvailability} from '../src/lib/offer-availability';
+import {optimize} from '../src/lib/optimizer';
+import {linkQuotes} from '../src/lib/link-quotes';
+import {distinctScenarios} from '../src/lib/scenario-display';
+import type {Scenario} from '../src/lib/domain';
 const old={...demoOffers[0],source:'live',vat_included:1,stock_status:'in_stock',stock_quantity:10,price_gross:1000,package_quantity:1,minimum_order_quantity:1,order_step:1,price_tiers:'[]',last_error:null,last_checked_at:new Date(Date.now()-2*3600000).toISOString()};
 const item={id:'i',cart_id:'test',canonical_product_id:old.canonical_product_id,quantity:2,added_by:'test',notes:'',allow_alternative:0,preferred_manufacturer:'',maximum_unit_price:null,created_at:''};
 test('an expired real stocked price is usable by request without changing its observation date',()=>{

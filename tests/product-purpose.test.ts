@@ -1,11 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {variantConflict,canMergeCatalogProducts} from '../lib/catalog-identity';
-import {productRole} from '../lib/product-role';
-import {cartOffers} from '../lib/cart-offers';
-import {demoOffers,products} from '../lib/catalog';
-import {offerAvailability} from '../lib/offer-availability';
-import {parseProduct} from '../stores/base';
+import {variantConflict,canMergeCatalogProducts} from '../src/lib/catalog-identity';
+import {productRole} from '../src/lib/product-role';
+import {cartOffers} from '../src/lib/cart-offers';
+import {demoOffers,products} from '../src/lib/catalog';
+import {offerAvailability} from '../src/lib/offer-availability';
+import {parseProduct} from '../src/stores/base';
 const different=[
  ['CH340G USB to TTL UART Modül','CH340G SMD USB Arabirimi, Arayüz Kontrolör'],
  ['CH340G USB to TTL UART Modül','CH340G IC-340 USB INTERFACE SO16'],

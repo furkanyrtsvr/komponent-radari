@@ -1,12 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {nameMatchScore,nameCandidateKeys} from '../public/catalog/product-identity.js';
-import {catalogueSources} from '../lib/catalog-sources';
-import {cartOffers,type OfferSelection} from '../lib/cart-offers';
-import {optimize} from '../lib/optimizer';
-import {demoOffers as offers,products,storeCatalog as stores} from '../lib/catalog';
-import {variantConflict} from '../lib/catalog-identity';
-import {offerAvailability} from '../lib/offer-availability';
+import {catalogueSources} from '../src/lib/catalog-sources';
+import {cartOffers,type OfferSelection} from '../src/lib/cart-offers';
+import {optimize} from '../src/lib/optimizer';
+import {demoOffers as offers,products,storeCatalog as stores} from '../src/lib/catalog';
+import {variantConflict} from '../src/lib/catalog-identity';
+import {offerAvailability} from '../src/lib/offer-availability';
 test('general name discovery recognizes unlisted models and spelling variants without merging identities',()=>{
  for(const [a,b] of [['TP5000 2A Pil Şarj Modülü','TP5000 4.2V/3.6V 1A LiPo Pil Şarj Modülü'],['TP 5000 pil kartı','TP5000red'],['XL4015 5A voltaj modülü','XL4015 DC DC kart'],['MAX98357 ses kartı','MAX98357A ses modülü'],['830 delikli breadboard beyaz','Beyaz 830 delikli breadboard']]){
   assert.ok(nameMatchScore({name:a},{name:b})>=0.65,`${a} / ${b}`);

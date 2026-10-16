@@ -1,9 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {accountId} from "../lib/account";
-import {applyCartShipping,type ShippingSetting} from "../lib/cart-shipping";
-import {linkQuotes} from "../lib/link-quotes";
-import {demoOffers,storeCatalog} from "../lib/catalog";
+import {accountId} from "../src/lib/account";
+import {applyCartShipping,type ShippingSetting} from "../src/lib/cart-shipping";
+import {linkQuotes} from "../src/lib/link-quotes";
+import {demoOffers,storeCatalog} from "../src/lib/catalog";
 test("the same platform member has the same portable UUID, different members remain separate",async()=>{
   const a=await accountId("member-a"),b=await accountId("member-b");
   assert.equal(await accountId("member-a"),a);

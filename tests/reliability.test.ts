@@ -1,13 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {decodeHtml,parsePrice,parseProduct} from "../stores/base";
-import {verifiedShippingRule,SHIPPING_TTL_MS} from "../lib/shipping";
-import {optimize} from "../lib/optimizer";
-import {storeCatalog,demoOffers} from "../lib/catalog";
-import type {CartItem} from "../lib/domain";
-import {catalogueSources} from "../lib/catalog-sources";
-import {matchesCatalogRequirement} from "../lib/catalog-identity";
-import {isFresh} from "../lib/pricing";
+import {decodeHtml,parsePrice,parseProduct} from "../src/stores/base";
+import {verifiedShippingRule,SHIPPING_TTL_MS} from "../src/lib/shipping";
+import {optimize} from "../src/lib/optimizer";
+import {storeCatalog,demoOffers} from "../src/lib/catalog";
+import type {CartItem} from "../src/lib/domain";
+import {catalogueSources} from "../src/lib/catalog-sources";
+import {matchesCatalogRequirement} from "../src/lib/catalog-identity";
+import {isFresh} from "../src/lib/pricing";
 
 test("merchant money formats preserve English and Turkish decimals and reject placeholders",()=>{
   for(const input of ["1.234,56 TL","1,234.56 TRY",1234.56,"₺ 1 234,56"]) assert.equal(parsePrice(input),123456);
