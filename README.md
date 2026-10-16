@@ -6,7 +6,6 @@ Amaç, aynı parçayı farklı adlarla satan mağazaları bulmak ve bir sepeti h
 
 [Yayımlanan uygulama](https://komponent-radari.equalwood4.chatgpt.site/)
 
-[GitHub deposu](https://github.com/furkanyrtsvr/komponent-radari)
 
 ## Görseller
 
