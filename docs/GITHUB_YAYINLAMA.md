@@ -1,29 +1,36 @@
-# GitHub’da kaynak paylaşma
+# Komponent Radarı — GitHub yayını
 
-Teslim GitHub’a hazır kaynak ZIP’idir; GitHub’da depo oluşturmaz veya yükleme yapmaz.
+[GitHub deposu](https://github.com/furkanyrtsvr/komponent-radari) · [Canlı uygulama](https://komponent-radari.equalwood4.chatgpt.site/)
 
-Uygulama, bağımlılık kilidi, mağaza adres dizini, testler, SQL geçişleri ve belgeler dahildir. Üçüncü taraf lisansları korunur. Paket `.openai/hosting.json` içinde boş Sites proje kimliği taşır.
+Komponent Radarı, Türkiye’de elektronik komponent fiyat karşılaştırması, açıklama destekli ürün eşleştirmesi ve kargo dahil sepet optimizasyonu sunar. Projenin önceki adı En Ucuzu Burada idi.
 
-Dışarıda: `.git`, `node_modules`, `dist`, `work`, `outputs`, yerel veritabanları, DPAPI, gerçek sırlar, kullanıcı sepetleri, kişisel oturumlar ve makine runtime ayarları. `tests/fixtures/merchants/` tarihli regresyon parçalarıdır; anlık fiyat değildir.
-
-ZIP’i açın; `en-ucuzu-burada/` içeriği depo kökü olsun. GitHub’da hesabınızda boş depo oluşturun, gerçek adresinizle:
+## Kaynak ve kurulum
 
 ```sh
-git init
-git branch -M main
-git add .
-git status --short
-git commit -m "Initial source release"
-git remote add origin https://github.com/KULLANICI/en-ucuzu-burada.git
-git push -u origin main
+git clone https://github.com/furkanyrtsvr/komponent-radari.git
+cd komponent-radari
+npm run install:ci
 ```
 
-`KULLANICI` yer tutucudur. Dışlanan sırları zorla eklemeyin. Web arayüzüyle yüklemede gizli `.gitignore`/`.openai` dosyalarını atlamayın; çok sayıda dosya için Git daha uygundur.
+Node.js 24 gerekir. Yerel veritabanı ve çalıştırma için [kurulum rehberini](KURULUM.md) izleyin.
 
-Depo açıklaması: **Türkiye’de elektronik komponent fiyat karşılaştırması, açıklama destekli ürün eşleştirmesi ve kargo dahil sepet optimizasyonu.**
+## Güncelleme ve sürüm
 
-Konu etiketleri: `electronics`, `price-comparison`, `typescript`, `react`, `cloudflare-workers`, `shopping-cart`.
+Değişikliklerden önce `git pull --ff-only` çalıştırın. Güncel kaynakları aktardıktan sonra farkı inceleyin ve kontrol edin:
 
-Yeni depo üretim kullanıcılarını veya fiyat arşivini devralmaz. GitHub’a kaynak yüklemek çalışan Worker/API’yi GitHub Pages üzerinde barındırmak değildir.
+```sh
+npm test
+npm run typecheck
+npm run build
+git diff --check
+```
 
-Proje adına açık kaynak lisansı seçilmedi; hak sahibi dağıtım koşullarını ayrıca belirleyebilir. [Lisans bildirimi](../LICENSE_NOTICE.md).
+Yalnız ilgili dosyaları commit edip `git push origin main` çalıştırın. GitHub Actions test, tür kontrolü ve derleme başarılı olduğunda otomatik Release oluşturur. Sites üretim yayını ayrı bir işlemdir; GitHub push’u çalışan siteyi değiştirmez.
+
+## Paylaşım kapsamı
+
+Kaynak kodu, bağımlılık kilidi, mağaza adres dizini, testler ve SQL geçişleri depoda yer alır. GitHub kopyasındaki `.openai/hosting.json` boş proje şablonudur; canlı Sites kimliği geliştirme kaynağında korunur.
+
+Gerçek anahtarlar, veritabanları, kullanıcı sepetleri, oturumlar, DPAPI dosyaları, `node_modules`, derleme çıktıları ve makine ayarları depoya eklenmez. `.env.example` boş şablondur. Tarihli mağaza test parçaları anlık fiyat değildir.
+
+GitHub kaynak yayını üretim kullanıcılarını veya fiyat arşivini taşımaz; Worker/API uygulamasını GitHub Pages’e dönüştürmez. [Lisans bildirimi](../LICENSE_NOTICE.md).

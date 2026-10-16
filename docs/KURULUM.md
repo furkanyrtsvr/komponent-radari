@@ -1,6 +1,6 @@
 # Kurulum ve çalıştırma
 
-Node.js 24, npm ve HTTPS erişimi gerekir. ZIP’in `en-ucuzu-burada/` klasöründe:
+Node.js 24, npm ve HTTPS erişimi gerekir. Komponent Radarı depo veya kaynak ZIP kökünde:
 
 ```sh
 npm run install:ci

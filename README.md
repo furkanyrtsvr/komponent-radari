@@ -1,10 +1,12 @@
-# En Ucuzu Burada
+# Komponent Radarı
 
 Türkiye’de elektronik komponent ve hobi elektroniği mağazalarını karşılaştıran, ürün ihtiyacından kargo dahil alışveriş planı oluşturan Türkçe web uygulaması.
 
 Amaç, aynı parçayı farklı adlarla satan mağazaları bulmak ve bir sepeti hangi mağazalardan almanın daha ekonomik olduğunu göstermektir. Yalnız ortak model kodu aynı ürün demek değildir: CH340 entegresi, USB–TTL dönüştürücü ve CH340 kullanan geliştirme kartı ayrı ürünlerdir.
 
-[Yayımlanan uygulama](https://en-ucuzu-burada.furkanyurtsev6.chatgpt.site/)
+[Yayımlanan uygulama](https://komponent-radari.equalwood4.chatgpt.site/)
+
+[GitHub deposu](https://github.com/furkanyrtsvr/komponent-radari)
 
 ## Görseller
 
@@ -12,19 +14,20 @@ Uygulama yerelde çalıştırılarak alınan dört ekran görüntüsü.
 
 ### Akıllı alışveriş sepeti
 
-![Akıllı alışveriş sepeti](docs/images/01-smart-basket.jpg)
+![Akıllı alışveriş sepeti](docs/images/01-smart-basket.png)
 
 ### Ürün keşfi ve katalog
 
-![Ürün keşfi ve katalog](docs/images/02-product-discovery.jpg)
+![Ürün keşfi ve katalog](docs/images/02-product-discovery.png)
 
 ### Mağaza ve kargo ayarları
 
-![Mağaza ve kargo ayarları](docs/images/03-store-settings.jpg)
+![Mağaza ve kargo ayarları](docs/images/03-store-settings.png)
 
 ### Manuel ürün ihtiyacı ekleme
 
-![Manuel ürün ihtiyacı ekleme](docs/images/04-manual-item.jpg)
+![Manuel ürün ihtiyacı ekleme](docs/images/04-manual-item.png)
+
 
 
 ## Özellikler
@@ -34,20 +37,20 @@ Uygulama yerelde çalıştırılarak alınan dört ekran görüntüsü.
 - Model, ürün işlevi, voltaj, akım, değer, kılıf, kanal/pin sayısı ve paket farklarını koruma. Görsel benzerliği destekleyici delildir; teknik uyuşmazlığı geçersiz kılamaz.
 - Mağazaya özgü okuyucularla KDV dahil fiyat, stok, minimum sipariş ve satış adımı doğrulama; son gerçek fiyatı kendi kontrol tarihiyle saklama.
 - Link karşılaştırmasında yalnız ürün tutarı; sepet optimizasyonunda ürünler ve mağaza bazında kargo dahil toplam.
-- Kargo bedeli ve ücretsiz kargo eşiği ayarları; aynı toplamı veren gereksiz mağaza seçeneklerini birleştirme.
+- İlk kullanımda 20 mağaza için hazır kargo bedeli ve ücretsiz kargo eşiği; sepet bazında değiştirilebilen ayarlar; aynı toplamı veren gereksiz mağaza seçeneklerini birleştirme.
 - Kalıcı sepetler, miktar düzenleme, CSV/XLSX BOM içe aktarma, paylaşım rolleri ve ortak sepet değişiklikleri.
 - Üyelik, favoriler, fiyat geçmişi, fiyat/stok takibi ve işlem kayıtları.
 - A canlı fiyat akışı ve B tarihli fiyat arşivi arasında geçiş; kategori bazında Excel dışa aktarımı.
 
 ## Mağazalar
 
-Direnç.net, Robotistan, Robolink Market, Robot Sepeti, SAMM Market, Motorobit, Özdisan, Robo90, Komponentci, Robiz, Robotzade, Robitshop, Robocombo ve Robotronik.
+Direnç.net, Robotistan, Robolink Market, Robot Sepeti, SAMM Market, Motorobit, Özdisan, Robo90, Komponentci, Robiz, Robotzade, Robitshop, Robocombo, Robotronik, Pil Paketi, Pil Sitesi, E komponent, Ulutaş Elektronik, Hobi Devre ve F1 Depo.
 
 Katalog, 3 Ekim 2026 tarihli site haritalarından 1.058.051 adres içerir. **Bu sayı doğrulanmış fiyat sayısı değildir.** Okunmamış fiyat boş kalır. Her mağazanın bütün sayfalarının kesintisiz okunabildiği iddia edilmez.
 
 ## Hızlı başlangıç
 
-Node.js 24 ve npm gerekir. ZIP içindeki `en-ucuzu-burada/` klasöründe:
+Node.js 24 ve npm gerekir. Depo veya kaynak ZIP kökünde:
 
 ```sh
 npm run install:ci

@@ -45,6 +45,6 @@ const view=await workbook.render({sheetName:'Özet',range:'A1:F18',scale:1});awa
 const template=resolve(taskDir,'template.xlsx');await (await SpreadsheetFile.exportXlsx(workbook)).save(template);db.close();
 // Artifact Tool has no streaming export API. Stream the data-only worksheet
 // bodies into its styled workbook using standard OOXML and Python's zipfile.
-const output=resolve(outputDir,'EN_UCUZU_BURADA_B_KATEGORI_KATALOGU.xlsx');
+const output=resolve(outputDir,'KOMPONENT_RADARI_B_KATEGORI_KATALOGU.xlsx');
 const result=spawnSync(resolve(runtime,'python/python.exe'),[resolve('scripts/stream-catalogue-xlsx.py'),resolve(taskDir,'catalogue.sqlite'),template,output],{encoding:'utf8',maxBuffer:100000});
 if(result.status!==0)throw new Error(result.stderr||result.stdout);console.log(result.stdout.trim());

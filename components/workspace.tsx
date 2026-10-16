@@ -747,9 +747,9 @@ export default function Workspace({
               <Zap size={23} fill="currentColor" />
             </span>
             <span>
-              en ucuzu
+              Komponent
               <span className="brand-bottom">
-                burada<span className="brand-dot">.</span>
+                Radarı<span className="brand-dot">.</span>
               </span>
             </span>
           </a>

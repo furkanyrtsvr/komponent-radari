@@ -36,7 +36,7 @@ node scripts/export-catalogue-b.mjs
 
 Bu isteğe bağlı araç, normal `npm ci` ile gelmeyen Codex çalışma alanının `@oai/artifact-tool` ve Python runtime’ını kullanır. Runtime kökü `CODEX_DEPENDENCIES` ile belirlenebilir; `work/catalogue-b/node_modules` bağlantısı runtime Node paketlerini göstermelidir. Bu ortam yoksa web uygulaması ve toplayıcı çalışabilir; mevcut Excel aracı ek kurulum olmadan çalışmaz.
 
-Çıktı `outputs/catalogue-b/EN_UCUZU_BURADA_B_KATEGORI_KATALOGU.xlsx`: 13 kategori + Özet, sayısal TL fiyatları, UTC kontrol tarihleri, stok, paket/adım, URL ve hata alanları. Okunmamış fiyat boş, eski kayıt ayrı belirtilir. Artifact Tool stil/önizlemesini oluşturur; büyük veri gövdeleri SQLite’dan standart OOXML ile akış halinde atomik yazılır.
+Çıktı `outputs/catalogue-b/KOMPONENT_RADARI_B_KATEGORI_KATALOGU.xlsx`: 13 kategori + Özet, sayısal TL fiyatları, UTC kontrol tarihleri, stok, paket/adım, URL ve hata alanları. Okunmamış fiyat boş, eski kayıt ayrı belirtilir. Artifact Tool stil/önizlemesini oluşturur; büyük veri gövdeleri SQLite’dan standart OOXML ile akış halinde atomik yazılır.
 
 ## Zamanlama ve geri dönüş
 

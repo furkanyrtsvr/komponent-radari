@@ -33,7 +33,7 @@ async function run(){
   db.prepare('UPDATE products SET active=0 WHERE generation<>?').run(generation);
   db.prepare("INSERT OR REPLACE INTO metadata VALUES('generation',?)").run(generation);
  }
- const site=arg('site','https://en-ucuzu-burada.furkanyurtsev6.chatgpt.site'),secret=process.env.CATALOG_INGEST_SECRET;
+ const site=arg('site','https://komponent-radari.equalwood4.chatgpt.site'),secret=process.env.CATALOG_INGEST_SECRET;
  const auth:Record<string,string>=secret?{authorization:`Bearer ${secret}`}:{},summary={indexed:db.prepare('SELECT COUNT(*) AS n FROM products WHERE active=1').get()!.n,checked:0,failed:0,imported:0,uploaded:0,uploadError:''};
  if(arg('feed')){
   let lineNo=0;for await(const line of createInterface({input:createReadStream(arg('feed')),crlfDelay:Infinity})){lineNo++;if(!line.trim())continue;try{const record=validateSnapshot(JSON.parse(line),storeCatalog);if(save(record))summary.imported++;}catch(e){summary.failed++;console.error(`Veri satırı ${lineNo}: ${e instanceof Error?e.message:e}`);}}
