@@ -1,3 +1,4 @@
+import index from '../src/lib/generated/catalog-matches';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
@@ -71,7 +72,6 @@ test('source discovery reaches real cross-store 1K pages without fixed resistors
  const sources=catalogueSources(source,true);
  for(const store of ['direnc','motorobit','robotistan','robo90','komponentci','robotsepeti','robolink','robocombo','robotronik'])assert.ok(sources.some(row=>row.storeId===store),store);
  assert.ok(!sources.some(row=>/trimpot|10k|100k/.test(row.url)));
- const index=JSON.parse(readFileSync('src/lib/generated/catalog-matches.json','utf8'));
  assert.ok(index['candidate:potentiometer:1000:rotary'].length>=9);
 });
 

@@ -1,6 +1,7 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import {requestError} from "./startup";
 let auth: SupabaseClient | null = null;
+export class ApiError extends Error{constructor(message:string,public status:number){super(message);this.name='ApiError';}}
 export async function configureAuth() {
   const r = await fetch("/api/config",{signal:AbortSignal.timeout(10000)}).catch(error=>{throw requestError(error);});
   if (!r.ok) throw new Error("Uygulama ayarları alınamadı.");
@@ -41,11 +42,11 @@ export async function api<T>(
     unmatched?: { mpn: string }[];
   };
   if (!r.ok) {
-    const e = new Error(
+    const e = new ApiError(
       data.error ||
         (data.unmatched
           ? `Eşleşmeyen MPN: ${data.unmatched.map((x) => x.mpn).join(", ")}. Hiçbir satır eklenmedi.`
-          : "İşlem tamamlanamadı."),
+          : "İşlem tamamlanamadı."),r.status,
     );
     throw e;
   }

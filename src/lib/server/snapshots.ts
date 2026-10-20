@@ -10,6 +10,8 @@ import {safeStoreUrl} from '../../stores/base';
 import {matchesCatalogRequirement} from '../catalog-identity';
 export async function pricePhase(){try{return (await cookies()).get('eub_price_phase')?.value==='B'?'B':'A';}catch{return 'A';}}
 export type SnapshotRow={id:string;store_id:string;url:string;checked_at:string;payload:string};
+function addressAliases(raw:string){const u=new URL(raw),bare=u.hostname.replace(/^www\./,'');u.hash='';const a=u.href;u.hostname=bare;const b=u.href;u.hostname='www.'+bare;return [...new Set([a,b,u.href])];}
+function canonicalAddress(raw:string,storeId:string){const domain=storeCatalog.find(s=>s.id===storeId)?.domain;const u=new URL(raw);if(domain)u.hostname=domain;u.hash='';return u.href;}
 /** Write through actual page observations; a cache read never advances its date. */
 export async function saveSnapshot(record:SnapshotRecord){
  const url=new URL(record.product.url);url.hash='';
@@ -44,12 +46,12 @@ async function rememberProduct(store:StoreConfig,product:ExtractedProduct){
 }
 export async function readSnapshot(store:StoreConfig,url:string,maxAge:number) {
  const address=safeStoreUrl(url,store.domain);address.hostname=store.domain;address.hash='';
- const row=await one<SnapshotRow>('catalog_snapshots',{store_id:store.id,url:address.href});
+ const row=(await listIn<SnapshotRow>('catalog_snapshots','url',addressAliases(address.href))).filter(r=>r.store_id===store.id).sort((a,b)=>b.checked_at.localeCompare(a.checked_at))[0];
  if(!row||!snapshotUsable(row.checked_at,maxAge))return undefined;
  const original=JSON.parse(row.payload) as SnapshotRecord;
  const record=upgradeSnapshotReader(original);if(!record)return undefined;
  if(record!==original)await saveSnapshot(record);
- return snapshotProduct(record);
+ return snapshotProduct({...record,product:{...record.product,url:address.href}});
 }
 export async function readProduct(store:StoreConfig,url:string,force=false):Promise<ExtractedProduct>{
  const phase=await pricePhase();
@@ -65,9 +67,9 @@ export async function readProduct(store:StoreConfig,url:string,force=false):Prom
 }
 export async function phaseOffers(offers:Offer[]){
  const phase=await pricePhase();
- const snapshots=new Map((await snapshotSources(offers.filter(o=>o.source==='live').map(o=>o.product_url))).map(row=>[row.store_id+':'+row.url,row]));
+ const snapshots=new Map((await snapshotSources(offers.filter(o=>o.source==='live').map(o=>o.product_url))).sort((a,b)=>a.checked_at.localeCompare(b.checked_at)).map(row=>[row.store_id+':'+canonicalAddress(row.url,row.store_id),row]));
  return offers.map(offer=>{
-  const row=snapshots.get(offer.store_id+':'+offer.product_url);
+  const row=snapshots.get(offer.store_id+':'+canonicalAddress(offer.product_url,offer.store_id));
   const record=row?upgradeSnapshotReader(JSON.parse(row.payload)):undefined;
   const corrected=!['robotzade','robitshop'].includes(offer.store_id)||Boolean(record);
   let next=corrected?offer:{...offer,last_error:'Satış adımı yeniden kontrol edilmeli.'};
@@ -90,4 +92,4 @@ export async function snapshotStatus(){
  const perStore=isSupabase() ? [] : await binding().prepare('SELECT store_id,COUNT(*) AS verified,SUM(checked_at>? AND checked_at<=?) AS fresh,MAX(checked_at) AS lastCheckedAt FROM catalog_snapshots GROUP BY store_id').bind(since,at).all();
  return {phase:await pricePhase(),...totals,ttlHours:12,collectorConfigured:config('CATALOG_INGEST_SECRET').length>=32,collector:collector?{updatedAt:collector.updated_at,...JSON.parse(collector.payload)}:null,stores:storeCatalog.map(store=>({id:store.id,name:store.name,...(!Array.isArray(perStore)?perStore.results.find((row:any)=>row.store_id===store.id)||{}:{})}))};
 }
-export async function snapshotSources(urls:string[]){return listIn<SnapshotRow>('catalog_snapshots','url',urls);}
+export async function snapshotSources(urls:string[]){return listIn<SnapshotRow>('catalog_snapshots','url',[...new Set(urls.flatMap(addressAliases))]);}

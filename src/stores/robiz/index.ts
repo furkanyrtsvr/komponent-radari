@@ -13,7 +13,7 @@ export function parseRobizProduct(html: string, url: string) {
       displayed !== p.price ||
       !Number.isSafeInteger(minimum) || minimum < 1 ||
       (!p.vatIncluded && !explicitGross) || p.currency !== "TRY" ||
-      (p.packageQuantity !== null && p.packageQuantity !== 1)
+      (p.packageQuantity !== null && p.packageQuantity !== 1 && !/\bkablo\s+seti\b/i.test(p.name))
     ) return p;
     const priceTiers = $(".product-discount").map((_, element) => {
       const text=$(element).text(), range=text.match(/^(\d+)\s+adet\s+ve\s+[üu]zeri\s+([\d.,]+)\s*TL/i);

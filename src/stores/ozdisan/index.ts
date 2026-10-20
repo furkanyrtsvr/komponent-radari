@@ -14,6 +14,7 @@ export function parseOzdisanProduct(html:string,url:string):ExtractedProduct {
  const candidates=nodes.filter(n=>ascii(n.name)===ascii(p.name));
  if(candidates.length!==1)throw new Error('Özdisan ana ürün kimliği doğrulanamadı.');
  const node=candidates[0],offers=(Array.isArray(node.offers)?node.offers:[node.offers]).filter((o:Data)=>o&&o.priceCurrency==='TRY'&&samePath(o.url));
+ if(!offers.length&&/Fiyat ve Stok Talep Et/i.test($('body').text()))throw new Error('Özdisan bu ürün için fiyat ve stok talebi istiyor; herkese açık fiyat yayımlamıyor.');
  if(offers.length!==1)throw new Error('Özdisan ürün teklifi belirsiz.');
  const offer=offers[0];
  const firstCard=$('[class*="ProductDetailTapeCard"][class*="tape-card-container"]').first();

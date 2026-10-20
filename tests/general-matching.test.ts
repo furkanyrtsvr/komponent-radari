@@ -1,3 +1,4 @@
+import index from '../src/lib/generated/catalog-matches';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {productIdentity as identity,candidateKey,isAccessory} from '../public/catalog/product-identity.js';
@@ -62,7 +63,6 @@ test('transient network failures differ from price, identity and permission fail
  for(const error of [new Error('Fiyatlar uyuşmuyor'),new Error('Ürün modeli eşleşmiyor'),new StoreReadError('HTTP 403',false)])assert.equal(isRetryableStoreError(error),false);
 });
 test('rebuilt servo index never contains 360-degree products, pan tilt or unrelated components',async()=>{
- const index=JSON.parse(await readFile(new URL('../src/lib/generated/catalog-matches.json',import.meta.url),'utf8'));
  const entries=index[key('SG90 Mikro Servo Motor')];
  assert.ok(entries.length>=5);
  for(const source of entries)assert.equal(key(source.name),key('SG90 Mikro Servo Motor'),source.url);

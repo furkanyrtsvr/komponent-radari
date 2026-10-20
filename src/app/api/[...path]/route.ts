@@ -120,7 +120,7 @@ async function handle(request: Request, context: Context) {
       ));
     }
     if (route === "catalog/preview" && method === "POST") {
-      await rateLimit("catalog-preview:" + u.id, 30);
+      await rateLimit("catalog-preview:" + u.id, 60);
       const urls = z.array(z.string().url().max(2000)).min(1).max(12).parse(body.urls);
       return Response.json(await previewCatalogProducts(urls, body.force === true));
     }

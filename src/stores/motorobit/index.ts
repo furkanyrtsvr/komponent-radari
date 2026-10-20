@@ -22,7 +22,7 @@ export function parseMotorobitProduct(html: string, url: string): ExtractedProdu
     if (logged) { try { controls.push(JSON.parse(logged[1]).P); } catch { /* Ignore unrelated scripts. */ } }
   });
   const samePath = (raw: unknown) => { try { return new URL(String(raw),url).pathname === new URL(url).pathname; } catch { return false; } };
-  const data = payloads.find(p => p.url && samePath(p.url) && typeof p.name === "string" && catalogIdentity({name:p.name}) === catalogIdentity(product));
+  const data = payloads.find(p => p.url && samePath(p.url) && typeof p.name === "string" && catalogIdentity({name:p.name}) === catalogIdentity({name:product.name}));
   const control = controls.find(p => p && p.URL && samePath(p.URL) && String(p.ID) === String(data?.id));
   const gross = parsePrice(data?.total_sale_price), net = parsePrice(data?.sale_price);
   const vat = Number(data?.vat), minimum = Number(control?.MIN_SALE_COUNT), step = Number(control?.STOCK_INCREMENT);

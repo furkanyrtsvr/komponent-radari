@@ -1,3 +1,4 @@
+import index from '../src/lib/generated/catalog-matches';
 import test from "node:test";
 import assert from "node:assert/strict";
 import { catalogIdentity, canMergeCatalogProducts } from "../src/lib/catalog-identity";
@@ -11,7 +12,6 @@ test("HC-SR04 sensor identity excludes holders, display modules and multi-packs"
  for(const name of ["HC-SR04 ultrasonic mesafe sensörü tutucu şeffaf","HC-SR04 sensör tutucu aparatı","HC-SR04 mesafe sensörü dijital gösterge","HC-SR04 ultrasonik sensör mesafe ölçüm modülü","HC-SR04 5 adet"]) assert.notEqual(key(name),sensor,name);
 });
 test("server index discovers Robo90 HC-SR04 for a basket without a prior merchant import", async () => {
- const index=JSON.parse(await readFile(new URL('../src/lib/generated/catalog-matches.json',import.meta.url),'utf8'));
  const sources=index[key('HC-SR04 Mesafe Sensörü')];
  assert.ok(sources.some((s:{url:string})=>s.url==='https://www.robo90.com/hc-sr04-ultrasonik-mesafe-sensoru'));
  assert.ok(sources.length>=6);
@@ -20,7 +20,6 @@ test("server index discovers Robo90 HC-SR04 for a basket without a prior merchan
 });
 
 test("new stores are discoverable for the same HC-SR04 sensor without confusing holders",async()=>{
- const index=JSON.parse(await readFile(new URL('../src/lib/generated/catalog-matches.json',import.meta.url),'utf8'));
  const sources=index[key('HC-SR04 Mesafe Sensörü')];
  for(const storeId of ['robotzade','robitshop','robocombo','robotronik'])assert.ok(sources.some((s:{storeId:string})=>s.storeId===storeId),storeId);
  for(const source of sources)assert.ok(!/tutucu|gosterge|olcum-modulu/.test(source.url),source.url);

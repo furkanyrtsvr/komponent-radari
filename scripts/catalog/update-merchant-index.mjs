@@ -1,3 +1,4 @@
+import {isProductSitemap} from './sitemap-kind.mjs';
 import { mkdirSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { load } from "cheerio";
@@ -10,7 +11,10 @@ const merchants = [
   ["motorobit", "www.motorobit.com"], ["robolink", "www.robolinkmarket.com"],
   ["samm", "market.samm.com"], ["ozdisan", "www.ozdisan.com"],
   ["robotzade", "www.robotzade.com"], ["robitshop", "www.robitshop.com"],
-  ["robocombo", "www.robocombo.com"], ["robotronik", "www.robotronik.com.tr"],
+  ["robocombo", "robocombo.com"], ["robotronik", "www.robotronik.com.tr"],
+  ["pilpaketi", "www.pilpaketi.com"], ["pilsitesi", "www.pilsitesi.com"],
+  ["ekomponent", "www.e-komponent.com"], ["ulutas", "www.ulutaselektronik.com"],
+  ["hobidevre", "hobidevre.com"], ["f1depo", "www.f1depo.com"],
 ];
 const selected=process.argv.find(arg=>arg.startsWith('--stores='))?.slice(9).split(',');
 if(selected?.some(id=>!merchants.some(([known])=>known===id)))throw new Error('Unknown merchant');
@@ -28,7 +32,7 @@ for (const [id, host] of merchants) {
   if(selected && !selected.includes(id))continue;
   const robots = await read(`https://${host}/robots.txt`, host);
   writeFileSync(`work/catalog/${id}-robots.txt`, robots);
-  const root = [...robots.matchAll(/^Sitemap:\s*(\S+)/gim)].map(m => m[1]).find(s => !/image|\/en\//i.test(s)) || `https://${host}/sitemap.xml`;
+  const root = [...robots.matchAll(/^Sitemap:\s*(\S+)/gim)].map(m => m[1]).find(s => !/image|\/en\//i.test(s)) || `https://${host}/${id==='hobidevre'?'sitemap_index.xml':'sitemap.xml'}`;
   const xml = await read(root, host);
   writeFileSync(`work/catalog/${id}-sitemap.xml`, xml);
   const $ = load(xml, { xmlMode: true });
@@ -43,8 +47,11 @@ for (const [id, host] of merchants) {
       const page = load(content, { xmlMode: true });
       const locs=page("url > loc").map((_, e) => page(e).text()).get();
       if(!locs.length)throw new Error('Empty sitemap; keep the previous snapshot');
-      children.push({ url:/urunler/i.test(url)?url+'#products':/kategoriler/i.test(url)?url+'#categories':url, locs });
-    } catch (error) { throw new Error(`${id}: ${url}: ${error}`); }
+      children.push({ url:/urunler/i.test(url)?url+'#products':/kategoriler/i.test(url)?url+'#categories':url, kind:isProductSitemap(url)?'product':'category',locs });
+    } catch (error) {
+      if(id==='pilsitesi'&&/403|429/.test(String(error))){const fallback=spawnSync(process.execPath,['--import','tsx','scripts/catalog/discover-pilsitesi.ts'],{stdio:'inherit'});if(fallback.status!==0)throw new Error('Pil Sitesi herkese açık liste keşfi tamamlanamadı.');children.push(...JSON.parse((await import('node:fs')).readFileSync('work/catalog/pilsitesi-children.json','utf8')));break;}
+      throw new Error(`${id}: ${url}: ${error}`);
+    }
   }
   writeFileSync(`work/catalog/${id}-children.json`, JSON.stringify(children));
   console.log(`${id}: ${children.filter(x => /product/i.test(x.url)).reduce((n, x) => n + x.locs.length, 0)} sitemap product URLs`);

@@ -57,7 +57,7 @@ async function run(){
      const record=validateSnapshot({readerRevision:2,storeId:store.id,checkedAt:new Date().toISOString(),product},storeCatalog);
      if(save(record)){db.prepare('INSERT OR IGNORE INTO history VALUES(?,?,?,?,?)').run(store.id,product.url,record.checkedAt,product.price,product.stockStatus);}
      summary.checked++;console.log(`${store.id}: ${p.name} · ${((p.price||0)/100).toFixed(2)} TL · ${p.stockStatus}`);
-    }catch(e){const at=new Date().toISOString(),error=e instanceof Error?e.message:String(e);db.prepare('UPDATE products SET last_attempt=?,next_due=?,error=? WHERE store_id=? AND url=?').run(at,new Date(Date.now()+12*3600000).toISOString(),error,store.id,row.url);summary.failed++;console.error(`${store.id}: ${error}`);}
+    }catch(e){const at=new Date().toISOString(),error=e instanceof Error?e.message:String(e);db.prepare('UPDATE products SET last_attempt=?,next_due=?,error=? WHERE store_id=? AND url=?').run(at,new Date(Date.now()+12*3600000).toISOString(),error,store.id,row.url);summary.failed++;console.error(`${store.id}: ${row.url}: ${error}`);}
    }
   }));
  }

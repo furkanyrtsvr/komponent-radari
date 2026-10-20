@@ -6,7 +6,7 @@ B modu, son 12 saat içinde doğrulanan fiyatları kullanır. Arşivde kayıt yo
 
 GitHub `Collect merchant price archive` iş akışı her saatin 13. ve 43. dakikasında çalışır. SQLite kuyruğu Actions önbelleğinde saklanır; sonraki çalışma kaldığı yerden devam eder. Her tur mağaza başına en fazla 20 sayfa okur. Bilinen fiyatların yenilenmesi ve henüz okunmamış adresler için ayrı kapasite ayrılır; yeni ürünler eski fiyat kuyruğunun arkasında süresiz kalmaz.
 
-Bu bir tam katalog anlık fiyat garantisi değildir. Bir milyondan fazla adresin ilk taraması çok sayıda tur gerektirir. Mağazaların robots.txt kuralları, istek aralıkları ve erişim engelleri korunur. Altı mağazada adres dizini ve özel okuyucu entegrasyonu eksiktir; mağaza kaydının bulunması fiyatlarının arşivlendiği anlamına gelmez.
+Bu bir tam katalog anlık fiyat garantisi değildir. Bir milyondan fazla adresin ilk taraması çok sayıda tur gerektirir. Mağazaların robots.txt kuralları, istek aralıkları ve erişim engelleri korunur. 20 mağazanın okuyucuları ve ürün adres dizinleri bağlıdır. Pil Sitesi dizini, engellenen XML site haritası nedeniyle herkese açık kategori sayfalarından kısmi olarak keşfedilir. Ürün dizininde bulunmak fiyatının doğrulandığı anlamına gelmez; teklif talebi isteyen veya verileri çelişen sayfalarda fiyat boş kalır.
 
 Sunucunun ve GitHub deposunun `CATALOG_INGEST_SECRET` sırları aynı olmalıdır. Gerçek değerler kaynak koduna veya iş akışı dosyasına yazılmaz. Şablon: `scripts/catalog/catalog-archive.yml`; etkin GitHub kopyası `.github/workflows/catalog-archive.yml` konumundadır. Otomatik fiyat güncellemeleri siteyi yeniden yayımlamaz.
 

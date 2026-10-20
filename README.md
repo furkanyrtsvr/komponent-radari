@@ -32,6 +32,7 @@ Uygulama yerelde çalıştırılarak alınan dört ekran görüntüsü.
 
 
 
+
 ## Özellikler
 
 - Ürün adı veya desteklenen mağazanın HTTPS ürün bağlantısıyla arama, karşılaştırma ve sepete ekleme.
@@ -48,7 +49,7 @@ Uygulama yerelde çalıştırılarak alınan dört ekran görüntüsü.
 
 Direnç.net, Robotistan, Robolink Market, Robot Sepeti, SAMM Market, Motorobit, Özdisan, Robo90, Komponentci, Robiz, Robotzade, Robitshop, Robocombo, Robotronik, Pil Paketi, Pil Sitesi, E komponent, Ulutaş Elektronik, Hobi Devre ve F1 Depo.
 
-Katalog, 3 Ekim 2026 tarihli site haritalarından 1.058.031 adres içerir. **Bu sayı doğrulanmış fiyat sayısı değildir.** Okunmamış fiyat boş kalır. Her mağazanın bütün sayfalarının kesintisiz okunabildiği iddia edilmez.
+Katalog, farklı tarihlerde alınmış mağaza site haritaları ve herkese açık kategori listelerinden toplam 1.159.064 adres içerir. Pil Sitesi dizini, engellenen XML site haritası nedeniyle kısmi keşiftir. **Bu sayı doğrulanmış fiyat sayısı değildir.** Okunmamış fiyat boş kalır. Her mağazanın bütün sayfalarının kesintisiz okunabildiği iddia edilmez.
 
 ## Hızlı başlangıç
 
@@ -132,6 +133,8 @@ Paket kaynak kodunu, bağımlılık kilidini, mağaza adres dizinini, testleri v
 [GitHub rehberi](docs/GITHUB_YAYINLAMA.md) · [Mimari](docs/MIMARI.md) · [Güvenlik](SECURITY.md) · [Lisans durumu](LICENSE_NOTICE.md)
 
 20 Ekim 2026: 184 otomatik test; altı kategoride 84 sayfalık canlı denetim. [Mağaza kapsamı ve yayın sonrası sonuçlar](docs/STABILITE_2026-10-20.md).
+
+20 Ekim 2026 ek entegrasyonları: Altı yeni mağaza okuyucusu ve 101.033 yeni ürün adresi. [Entegrasyon ve hata düzeltme raporu](docs/ENTEGRASYON_2026-10-20.md).
 
 ## Otomatik sürümler
 

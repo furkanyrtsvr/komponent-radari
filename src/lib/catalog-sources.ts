@@ -1,5 +1,5 @@
 import {catalogIdentity,matchesCatalogRequirement,candidateKey,relatedRegulatorModule} from "./catalog-identity";
-import catalogueMatches from "./generated/catalog-matches.json";
+import catalogueMatches from "./generated/catalog-matches";
 import {nameCandidateKeys,nameMatchScore} from '../../public/catalog/product-identity.js';
 import {productRoleConflict,productRole} from './product-role';
 type CatalogSource = {storeId:string;url:string;name:string};

@@ -4,7 +4,8 @@ import {ascii} from '../../public/catalog/product-identity.js';
 /** New Robocombo storefront: reconcile the selected product/variant with its own public offer. */
 export function parseIkasProduct(html:string,url:string){
  const $=load(html),p=parseProduct(html,url);
- const root=JSON.parse($('#__NEXT_DATA__').text()).props?.pageProps,d=root?.pageSpecificData;
+ const raw=$('#__NEXT_DATA__').text()||html.match(/<script\b(?=[^>]*\bid=["']__NEXT_DATA__["'])(?=[^>]*\btype=["']application\/json["'])[^>]*>([\s\S]*?)<\/script>/i)?.[1]||'';
+ const root=JSON.parse(raw).props?.pageProps,d=root?.pageSpecificData;
  if(!d||d.type!=='PHYSICAL'||d.deleted||ascii(d.name)!==ascii(p.name)||d.metaData?.slug!==new URL(url).pathname.replace(/^\//,'').replace(/\/$/,''))throw new Error('Mağaza ana ürün kimliği doğrulanamadı.');
  const requested=new URL(url).searchParams.get('vid'),variants=(d.variants||[]).filter((v:any)=>v.isActive&&!v.deleted&&(!requested||v.id===requested));
  if(variants.length!==1)throw new Error('Ürün varyantı belirsiz; varyant seçilmeli.');

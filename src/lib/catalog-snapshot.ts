@@ -24,6 +24,7 @@ export function validateSnapshot(input:unknown,stores:{id:string;domain:string}[
  const row=snapshotRecord.parse(input),store=stores.find(s=>s.id===row.storeId),url=new URL(row.product.url);
  if(!store||url.protocol!=='https:'||url.username||url.password||url.port||url.hostname.replace(/^www\./,'')!==store.domain.replace(/^www\./,''))throw new Error('Mağaza adresi geçersiz.');
  if(!snapshotUsable(row.checkedAt,SNAPSHOT_TTL_MS,at))throw new Error('Fiyat kontrol zamanı geçersiz veya 12 saatten eski.');
+ url.hostname=store.domain;url.hash='';row.product.url=url.href;
  row.checkedAt=new Date(row.checkedAt).toISOString();
  return row;
 }

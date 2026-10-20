@@ -33,7 +33,7 @@ for (const store of manifest.stores) {
  for (const chunk of store.chunks) {
   const rows = JSON.parse(await fs.readFile(new URL(chunk.key,root),'utf8'));
   for (const [path,name,sourceCategory] of rows) {
-   if(['robotzade','robitshop'].includes(store.id))ideaCatalog[store.id+':'+new URL(path,store.base).pathname]={storeId:store.id,name};
+   if(['robotzade','robitshop','ulutas','f1depo'].includes(store.id))ideaCatalog[store.id+':'+new URL(path,store.base).pathname]={storeId:store.id,name};
    const key = productIdentity({name,category:sourceCategory});
    const source = {storeId:store.id,url:store.base+path,sourceCategory,name};
    const sources = records.get(key);
@@ -79,4 +79,9 @@ for(const [key,rows] of candidates){
 }
 await fs.mkdir(new URL('../../src/lib/generated',import.meta.url),{recursive:true});
 await fs.writeFile(new URL('../../src/lib/generated/ideasoft-catalog.json',import.meta.url),JSON.stringify(ideaCatalog));
-await fs.writeFile(new URL('../../src/lib/generated/catalog-matches.json',import.meta.url),JSON.stringify(Object.assign({},...buckets,Object.fromEntries(candidates))));
+const serverBuckets=Array.from({length:64},()=>({}));
+for(const [key,rows] of Object.entries(Object.assign({},...buckets,Object.fromEntries(candidates))))serverBuckets[matchBucket(key)][key]=rows;
+const serverRoot=new URL('../../src/lib/generated/catalog-matches/',import.meta.url);
+await fs.mkdir(serverRoot,{recursive:true});
+await Promise.all(serverBuckets.map((bucket,i)=>fs.writeFile(new URL(`${i}.json`,serverRoot),JSON.stringify(bucket))));
+await fs.writeFile(new URL('../../src/lib/generated/catalog-matches.ts',import.meta.url),serverBuckets.map((_,i)=>`import bucket${i} from './catalog-matches/${i}.json';`).join('\n')+'\nexport default Object.assign({},'+serverBuckets.map((_,i)=>`bucket${i}`).join(',')+');\n');

@@ -1,3 +1,7 @@
+import {PilpaketiAdapter} from './qukasoft';
+import {PilsitesiAdapter} from './ticimax';
+import {HobidevreAdapter} from './woocommerce';
+import {EkomponentAdapter} from './ekomponent';
 import { DirencAdapter } from "./direnc";
 import { RobotistanAdapter } from "./robotistan";
 import { Robo90Adapter } from "./robo90";
@@ -28,6 +32,12 @@ const registry: Record<string, new (s: StoreConfig) => StoreAdapter> = {
   robitshop: IdeasoftAdapter,
   robocombo: RobocomboAdapter,
   robotronik: RobotronikAdapter,
+  pilpaketi: PilpaketiAdapter,
+  pilsitesi: PilsitesiAdapter,
+  ekomponent: EkomponentAdapter,
+  ulutas: IdeasoftAdapter,
+  hobidevre: HobidevreAdapter,
+  f1depo: IdeasoftAdapter,
 };
 export function adapterFor(store: StoreConfig): StoreAdapter {
   return new (registry[store.id] || JsonLdAdapter)(store);

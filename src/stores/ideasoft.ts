@@ -1,3 +1,4 @@
+import {ascii} from '../../public/catalog/product-identity.js';
 import {load} from 'cheerio';
 import {JsonLdAdapter,parsePrice,safeStoreUrl} from './base';
 import {inlineObject} from './inline-data';
@@ -14,11 +15,14 @@ export function parseIdeasoftProduct(html:string,url:string):ExtractedProduct{
   const canonical=$('link[rel="canonical"]').attr('href');
   if(canonical && new URL(canonical,url).pathname!==new URL(url).pathname)throw new Error('Bağlantı farklı bir ürüne yönlendi.');
   const gross=parsePrice(p.salePrice),tax=Number(p.tax);
-  const displayed=parsePrice(scope.find('.rz-pd-price-sub').length?scope.find('.rz-pd-price-sub').first().text():scope.find('.product-price').first().text());
-  if(!gross || displayed!==gross || !Number.isFinite(tax) || tax<0 || tax>100)throw new Error('Mağazanın KDV dahil ürün fiyatı doğrulanamadı.');
+  const priceNode=scope.find('.rz-pd-price-sub').length?scope.find('.rz-pd-price-sub').first():scope.find('.product-price-new').length?scope.find('.product-price-new').first():scope.find('.product-price').first();
+  const displayed=parsePrice(priceNode.text());
+  const netLabel=/\+\s*KDV|KDV\s*Hariç/i.test(priceNode.text());
+  const net=Number(p.priceWithCurrency??p.price)-Number(p.discountWithCurrency||0),verifiedDisplay=displayed===gross||netLabel&&Number.isFinite(net)&&net>0&&displayed===parsePrice(net)&&Math.abs(Math.round(net*(1+tax/100)*100)-gross!)<=1;
+  if(!gross || !verifiedDisplay || !Number.isFinite(tax) || tax<0 || tax>100)throw new Error('Mağazanın KDV dahil ürün fiyatı doğrulanamadı.');
   const qty=scope.find('[data-selector="qty"][data-context="detail"]').first();
   const buy=scope.find('[data-selector="add-to-cart"][data-context="detail"]').filter((_,e)=>$(e).attr('data-product-id')===String(p.id));
-  const unavailable=/Gelince Haber Ver|Stokta Yok|Tükendi/i.test(scope.text());
+  const unavailable=/gelince haber ver|stokta yok|tukendi/.test(ascii(scope.text()));
   const stock=unavailable?'out_of_stock':buy.length?'in_stock':'unknown';
   // IdeaSoft's stockamount is the stock ceiling; its input value/min and the
   // Piece quantity control describe the amount the buyer can actually order.
@@ -35,7 +39,7 @@ export function parseIdeasoftProduct(html:string,url:string):ExtractedProduct{
   return {url,name,mpn:String(p.sku||''),model:'',manufacturer:String(p.brandName||''),image,
     price:gross,priceNet:Math.round(gross/(1+tax/100)),currency:'TRY',vatIncluded:true,vatRate:tax/100,
     packageQuantity,minimumOrderQuantity:minimum*packageQuantity,orderStep:step*packageQuantity,quantityVerified:true,
-    stockStatus:stock,stockQuantity:stockAmount===null?null:stockAmount*packageQuantity,specifications:JSON.stringify({description}),warnings:['KDV dahil mağaza fiyatı ve satış birimi doğrulandı.'],priceTiers:[]};
+    stockStatus:stock,stockQuantity:stockAmount===null?(stock==='out_of_stock'?0:null):stockAmount*packageQuantity,specifications:JSON.stringify({description}),warnings:['KDV dahil mağaza fiyatı ve satış birimi doğrulandı.'],priceTiers:[]};
 }
 export class IdeasoftAdapter extends JsonLdAdapter{
   async getProduct(raw:string){const page=await this.readPage(raw);return parseIdeasoftProduct(page.html,page.url);}
