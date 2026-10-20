@@ -978,7 +978,7 @@ export default function Workspace({
                     <span>
                       <strong>Gerçek mağaza fiyatları</strong>
                       <small>
-                        {syncMessage || "Mağaza teklifleri 20 dakika geçerli."}
+                        {syncMessage || "Fiyatlar son kontrol tarihine göre değerlendirilir."}
                         {refreshing ? ` (${refreshSeconds} sn)` : ""}
                       </small>
                     </span>

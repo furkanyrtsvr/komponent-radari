@@ -34,3 +34,14 @@ test('assembled categories override incidental chips, and all given shipping def
  assert.equal(own[0].shipping_base_price,12300);assert.equal(own[1].shipping_base_price,14900);
  assert.equal(applyCartShipping(stores,[])[0].shipping_base_price,14400);
 });
+
+
+test('test instruments, inductors, books and board cases do not inherit incidental part categories',()=>{
+ for(const [name,old,expected] of [
+  ['FNIRSI HRM10 Pil Voltajı Dahili Direnç Test Cihazı','Dirençler','Ölçüm ve Test'],
+  ['470uH Direnç Tip Bobin','Dirençler','Diğer'],
+  ['Arduino Uygulama Kitabı','Geliştirme Kartları','Diğer'],
+  ['Arduino Uno Şeffaf Akrilik Kutu','Geliştirme Kartları','Diğer'],
+  ['Arduino için USB bağlantı kablosu','Geliştirme Kartları','Kablolar'],
+ ])assert.equal(catalogGroup(name,old),expected);
+});

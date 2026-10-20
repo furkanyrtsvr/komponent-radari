@@ -304,7 +304,9 @@ function readProductIdentity(value){
 }
 export function catalogGroup(name,current='Diğer') {
  const s=technicalText(name);
- if(isAccessory(s))return current;
+ if(/\b(?:(?:kitap|kitab)\w*|book|bobin\w*|inductor|enduktor\w*)\b/.test(s))return 'Diğer';
+ if(/\b(?:multimetre\w*|multimeter|osiloskop\w*|oscilloscope|voltmetre\w*|ampermetre\w*|test\s+cihaz\w*|olcum\s+cihaz\w*|tester)\b/.test(s))return 'Ölçüm ve Test';
+ if(isAccessory(s))return /\b(?:kablo\w*|cable)\b/.test(s)?'Kablolar':'Diğer';
  // More specific assembled products precede incidental chips and sensors.
  if(/\b(?:motor|servo)\s+(?:surucu|driver)|\b(?:l298n|a4988|drv8825)\b/.test(s))return 'Modüller';
  if(/\b(?:sensor\w*|modul\w*|module|kart\w*|board|devkit|gelistirme)\b/.test(s)&&/\b(?:arduino|esp32|esp8266|stm32|raspberry|nodemcu)\b/.test(s)&&!/\b(?:sensor\w*|surucu\w*|role|relay)\b/.test(s))return 'Geliştirme Kartları';

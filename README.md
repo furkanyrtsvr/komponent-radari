@@ -131,8 +131,9 @@ Paket kaynak kodunu, bağımlılık kilidini, mağaza adres dizinini, testleri v
 
 [GitHub rehberi](docs/GITHUB_YAYINLAMA.md) · [Mimari](docs/MIMARI.md) · [Güvenlik](SECURITY.md) · [Lisans durumu](LICENSE_NOTICE.md)
 
+20 Ekim 2026: 184 otomatik test; altı kategoride 84 sayfalık canlı denetim. [Mağaza kapsamı ve yayın sonrası sonuçlar](docs/STABILITE_2026-10-20.md).
+
 ## Otomatik sürümler
 
 [GitHub Release akışı](docs/SURUMLEME.md), main dalına gönderilen değişiklikleri test ve derlemeden sonra sürümler. İlk aktarım yerel kaynağın cc5b940117f6b9bb6a502db8862f387dad57303b commit görüntüsünden hazırlanmıştır.
 
-20 Ekim 2026: 183 test geçti; altı kategoride 84 canlı ürün sayfasından 76 fiyat doğrulandı. [Stabilite ve mağaza kapsamı](docs/STABILITE_2026-10-20.md).

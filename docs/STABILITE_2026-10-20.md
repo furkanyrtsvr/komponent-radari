@@ -35,4 +35,10 @@ GitHub Actions `catalog-archive.yml` yarım saatte bir sınırlı bir toplama tu
 
 ## Yerel doğrulama
 
-183 otomatik test: kategori/ürün ayrımı, voltaj, akım, ölçü ve güç farklılıkları, okuyucu regresyonları, kuyruk adaleti ve 20 mağazanın kargo varsayılanları. TypeScript kontrolü ve üretim derlemesi ayrıca çalıştırılır. Canlı barındırma ve ilk otomatik tur sonuçları yayın sonrası kontrol edilir.
+184 otomatik test: kategori/ürün ayrımı, voltaj, akım, ölçü ve güç farklılıkları, okuyucu regresyonları, kuyruk adaleti ve 20 mağazanın kargo varsayılanları. TypeScript kontrolü ve üretim derlemesi ayrıca çalıştırılır. Canlı barındırma ve ilk otomatik tur sonuçları yayın sonrası kontrol edilir.
+
+## Yayın sonrası doğrulama
+
+Canlı sunucuda 14 mağazadan birer ürün zorla yeniden okundu: 12 mağaza yeni fiyat döndürdü. Robotzade ve Robitshop için robots.txt erişimi 403 döndü; son kayıt kendi tarihi korunarak gösterildi. Bu iki mağaza yerel ağ denetiminde okunabilmişti. GitHub Actions ilk toplama turu başarıyla tamamlandı: [çalışma kaydı](https://github.com/furkanyrtsvr/komponent-radari/actions/runs/39421388249).
+
+İlk otomatik tur: 37 ürün doğrulandı ve sunucuya aktarıldı; 5 okuma başarısızdı. Aynı turda Robotzade ve Robitshop GitHub ağı üzerinden okunabildi. Böylece sunucudan doğrudan erişim engellense de toplayıcının doğrulanmış kayıtları B modunda kullanılabilir.
