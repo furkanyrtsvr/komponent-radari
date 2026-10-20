@@ -1,45 +1,29 @@
-# B fiyat arşivi ve kategori Excel’i
+# B hızlı fiyat arşivi
 
-B fiyat arşivi karşılaştırmayı hızlandırır. Excel okunabilir çıktıdır; uygulama her aramada milyon satırlık Excel açmaz.
+B modu, son 12 saat içinde doğrulanan fiyatları kullanır. Arşivde kayıt yoksa canlı okuma denenir; başarısızlık fiyat veya güncel tarih üretilerek kapatılmaz.
 
-`scripts/catalog/catalogue-b.ts` mevcut 14 mağazanın adreslerini `work/catalogue-b/catalogue.sqlite` kuyruğuna alır. Mağaza içinde sıralı istek, robots.txt ve Crawl-delay korunur; Robotzade/Robitshop beklemesi 30 saniyedir.
+## Otomatik toplama
 
-Windows:
+GitHub `Collect merchant price archive` iş akışı her saatin 13. ve 43. dakikasında çalışır. SQLite kuyruğu Actions önbelleğinde saklanır; sonraki çalışma kaldığı yerden devam eder. Her tur mağaza başına en fazla 20 sayfa okur. Bilinen fiyatların yenilenmesi ve henüz okunmamış adresler için ayrı kapasite ayrılır; yeni ürünler eski fiyat kuyruğunun arkasında süresiz kalmaz.
+
+Bu bir tam katalog anlık fiyat garantisi değildir. Bir milyondan fazla adresin ilk taraması çok sayıda tur gerektirir. Mağazaların robots.txt kuralları, istek aralıkları ve erişim engelleri korunur. Altı mağazada adres dizini ve özel okuyucu entegrasyonu eksiktir; mağaza kaydının bulunması fiyatlarının arşivlendiği anlamına gelmez.
+
+Sunucunun ve GitHub deposunun `CATALOG_INGEST_SECRET` sırları aynı olmalıdır. Gerçek değerler kaynak koduna veya iş akışı dosyasına yazılmaz. Şablon: `scripts/catalog/catalog-archive.yml`; etkin GitHub kopyası `.github/workflows/catalog-archive.yml` konumundadır. Otomatik fiyat güncellemeleri siteyi yeniden yayımlamaz.
+
+Arşiv kapsamı ve mağaza durumu uygulamadaki fiyat kaynağı bölümünde görünür: toplam/güncel kayıtlar, son toplama, mağaza bazında kapsam ve erişim hataları.
+
+## Yerel çalıştırma
+
+Depo kökünden:
 
 ```powershell
-./scripts/catalog/run-catalogue-b.ps1 -Limit 250 -KnownOnly
+./scripts/catalog/run-catalogue-b.ps1 -Limit 20
 ```
 
-Başka kurulumda, aktarım anahtarını güvenli süreç ortamına tanımlayıp kendi site adresinizi verin:
-
-```sh
-node node_modules/tsx/dist/cli.mjs scripts/catalog/catalogue-b.ts --collect --limit=250 --known-only --site=https://KENDI-UYGULAMANIZ
-```
-
-Windows sarmalayıcısı mevcut uygulamanın varsayılan adresini kullanır. `--known-only`, önce gerçek fiyatı okunmuş veya sepet için önceliklendirilmiş kayıtlara gider; mağaza başına 250 sınırı, son deneme ve sonraki kontrol zamanı korunur. Tek toplayıcı kilidi vardır. Tüm bir milyon adresin günde iki kez sayfa sayfa yenilenmesi vaat edilmez.
-
-## Aktarım
-
-Sunucu ve toplayıcı aynı `CATALOG_INGEST_SECRET` değerini kendi güvenli ortamında kullanmalıdır. Sırları tarayıcıya, Git’e veya loga yazmayın. Windows sarmalayıcısı mevcut kullanıcıya ait DPAPI korumalı `work/catalogue-b/ingest-secret.dpapi` okuyabilir; bu dosya başka bilgisayara taşınmaz.
-
-`/api/catalog-snapshot` mağaza, HTTPS URL, kontrol zamanı, TRY/KDV, fiyat ve satış birimini doğrular. Eski aktarım yeni gözlemin üzerine yazılmaz. Başarısız aktarım tekrar denenecek kayıtları silmez. Başarısız yeni okumada eski fiyatın tarihi ilerlemez; hata ve son deneme ayrı tutulur.
-
-Harici XML/CSV beslemesi ancak alan/KDV/paket doğrulandıktan sonra `src/lib/catalog-snapshot.ts` şemasına çevrilir; doğrulanmamış fiyat üretilmez.
+`-KnownOnly` yalnız daha önce fiyatı okunmuş veya sepet bağlantısı olan kayıtları yeniler; bütün kataloğu keşfetmek için kullanılmaz. Tek toplayıcı kilidi ve başarısız okumalarda yeniden deneme zamanı vardır.
 
 ## Excel
 
-Toplama ve aktarım bitip yayından geri okuma doğrulandıktan sonra:
+`node scripts/catalog/export-catalogue-b.mjs`, yerel kuyruğu kategori bazında Excel dosyasına aktarır: `outputs/catalogue-b/KOMPONENT_RADARI_B_KATEGORI_KATALOGU.xlsx`. Excel uygulamanın çevrimiçi arama veritabanı değildir. `work/`, yerel veritabanları ve sırlar Git'e eklenmez.
 
-```sh
-node scripts/catalog/export-catalogue-b.mjs
-```
-
-Bu isteğe bağlı araç, normal `npm ci` ile gelmeyen Codex çalışma alanının `@oai/artifact-tool` ve Python runtime’ını kullanır. Runtime kökü `CODEX_DEPENDENCIES` ile belirlenebilir; `work/catalogue-b/node_modules` bağlantısı runtime Node paketlerini göstermelidir. Bu ortam yoksa web uygulaması ve toplayıcı çalışabilir; mevcut Excel aracı ek kurulum olmadan çalışmaz.
-
-Çıktı `outputs/catalogue-b/KOMPONENT_RADARI_B_KATEGORI_KATALOGU.xlsx`: 13 kategori + Özet, sayısal TL fiyatları, UTC kontrol tarihleri, stok, paket/adım, URL ve hata alanları. Okunmamış fiyat boş, eski kayıt ayrı belirtilir. Artifact Tool stil/önizlemesini oluşturur; büyük veri gövdeleri SQLite’dan standart OOXML ile akış halinde atomik yazılır.
-
-## Zamanlama ve geri dönüş
-
-Mevcut bilgisayardaki Codex görevi Türkiye saatiyle 08:00 ve 20:00 için ayarlıdır; ZIP başka bilgisayara bu görevi kurmaz. Ayrı makinenin anahtarı, ağı ve zamanlayıcısı ayrıca gerekir. Makine kapalıyken yerel toplama çalışmaz.
-
-A varsayılandır; arayüzden A/B değişir. Asıl çalışma alanında `a-asamasi-2026-10-03` etiketi ve ayrı A ZIP’i korunur. Git geçmişi bu paylaşım paketinde yoktur; yeni depoda bu etiket varmış gibi kullanmayın. Tarihli ayrıntılar: [VERIFICATION_B_ASAMASI.md](archive/VERIFICATION_B_ASAMASI.md).
+[Mağaza ve stabilite denetimi](STABILITE_2026-10-20.md)

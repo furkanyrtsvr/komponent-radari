@@ -23,12 +23,12 @@ import {
 import { api } from "@/lib/client";
 import type { Offer, Store } from "@/lib/domain";
 import { money } from "@/lib/domain";
-import { hasObservedPrice } from "@/lib/pricing";
+import { hasObservedPrice, isFresh } from "@/lib/pricing";
 import { catalogIdentity } from "@/lib/catalog-identity";
 import type { CatalogPreview } from "@/lib/server/catalog-preview";
 
 type Source = { storeId: string; url: string; sourceCategory: string; name?:string };
-const previewObserved=(p:CatalogPreview)=>Boolean(p.price && Number.isFinite(Date.parse(p.checkedAt)) && Date.parse(p.checkedAt)<=Date.now());
+const previewObserved=(p:CatalogPreview)=>Boolean(p.price && Number.isFinite(Date.parse(p.checkedAt)) && Date.parse(p.checkedAt)<=Date.now() && Date.now()-Date.parse(p.checkedAt)<(p.maxAgeMs||20*60*1000));
 type IndexedProduct = {
   key: string;
   name: string;
@@ -187,11 +187,11 @@ export function MerchantCatalog({
     if (previewPending.current) return;
     const urls = [...(selectedProduct?.sources.map(source => source.url) || []), ...rows
       .slice(0, 40)
-      .filter(row => !row.sources.some(source => previews[source.url]?.key === row.key && previews[source.url]?.image && !failedImages.includes(previews[source.url].image!)))
-      .map(row => row.sources.find(source => !attemptedPreviews.current.has(source.url))?.url)]
+      .flatMap(row => row.sources.map(source=>source.url))]
       .filter((url): url is string => Boolean(url))
       .filter((url) => !attemptedPreviews.current.has(url))
-      .slice(0, 8);
+      .filter((url,index,all)=>all.findIndex(other=>new URL(other).hostname===new URL(url).hostname)===index)
+      .slice(0, 4);
     if (!urls.length) return;
     previewPending.current = true;
     urls.forEach((url) => attemptedPreviews.current.add(url));
@@ -232,7 +232,7 @@ export function MerchantCatalog({
       const p=previews[source.url];
       if(p?.key===row.key && p.price && p.stockStatus==='in_stock' && previewObserved(p)) return p.price;
       if(p?.price && previewObserved(p)) return Infinity;
-      const offer=offers.find(o=>o.product_url===source.url && catalogIdentity({name:o.title})===row.key && hasObservedPrice(o) && o.stock_status==='in_stock');
+      const offer=offers.find(o=>o.product_url===source.url && catalogIdentity({name:o.title})===row.key && isFresh(o) && o.stock_status==='in_stock');
       return offer?.price_gross || Infinity;
     };
     for(const source of row.sources) {const previous=perStore.get(source.storeId);if(!previous || cost(source)<cost(previous))perStore.set(source.storeId,source);}
@@ -246,7 +246,7 @@ export function MerchantCatalog({
       (candidate) =>
         candidate.product_url === url &&
         catalogIdentity({name:candidate.title}) === key &&
-        hasObservedPrice(candidate) &&
+        isFresh(candidate) &&
         candidate.stock_status === "in_stock",
     );
     return offer ? money(offer.price_gross) : null;
@@ -288,7 +288,7 @@ export function MerchantCatalog({
                 {candidate.name} (
                 {manifest?.stores
                   .find((entry) => entry.id === candidate.id)
-                  ?.count.toLocaleString("tr-TR") || "…"}
+                  ?.count.toLocaleString("tr-TR") || "dizin entegrasyonu yok"}
                 )
               </option>
             ))}
@@ -375,6 +375,10 @@ export function MerchantCatalog({
               onImageError={imageFailed}
             />
             <h3>{row.shortName || row.name}</h3>
+            <p className="merchant-card-price">{(() => {
+              const prices=row.sources.map(source=>previews[source.url]).filter(p=>p?.key===row.key&&p.stockStatus==='in_stock'&&previewObserved(p));
+              return prices.length ? `${money(Math.min(...prices.map(p=>Math.round(p.price!/(p.packageQuantity||1)))))} / adet` : row.sources.every(source=>attemptedPreviews.current.has(source.url)&&previews[source.url]) ? 'Fiyat doğrulanamadı' : 'Fiyatlar kontrol ediliyor…';
+            })()}</p>
           </button>
         );})}
       </div>
@@ -453,6 +457,7 @@ export function MerchantCatalog({
                         {previews[source.url]?.retained ? " · son doğrulanan fiyat" : ""}
                         {checkedPrice(source.url,selectedProduct.key) && <small>Son kontrol · {new Date(previews[source.url]?.checkedAt || offers.find(o=>o.product_url===source.url)?.last_checked_at || '').toLocaleString('tr-TR')}</small>}
                       </span>
+                      {previews[source.url]?.message && !checkedPrice(source.url,selectedProduct.key) && <small>{previews[source.url].message}</small>}
                     </div>
                   </div>
                 ))}

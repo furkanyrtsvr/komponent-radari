@@ -42,11 +42,12 @@ export async function previewCatalogProducts(urls: string[], force = false) {
         throw new HttpError(400, "Desteklenen mağaza bağlantısı gerekli.");
       const cacheKey=phase+':'+url;
       const cached = cache.get(cacheKey);
-      if (!force && cached && Date.now()-cached.at<5*60*1000){const previous=await cached.value;if(!previous.price||snapshotUsable(previous.checkedAt,previous.maxAgeMs||5*60*1000))return previous;}
+      if (!force && cached && Date.now()-cached.at<5*60*1000){const previous=await cached.value;if(previous.price ? snapshotUsable(previous.checkedAt,previous.maxAgeMs||5*60*1000) : Date.now()-cached.at<15000)return previous;}
       const value = (async (): Promise<CatalogPreview> => {
-        const adapter = adapterFor(store);
+        const boundedStore={...store,requestSignal:AbortSignal.timeout(18000)};
+        const adapter = adapterFor(boundedStore);
         let product, message = "";
-        try { product = await readProduct(store,url,force); }
+        try { product = await readProduct(boundedStore,url,force); }
         catch (error) {
           message = error instanceof Error ? error.message : "Mağaza okunamadı.";
           if(isRetryableStoreError(error) && cached) {
@@ -54,7 +55,7 @@ export async function previewCatalogProducts(urls: string[], force = false) {
             if(previous.price && Date.now()-Date.parse(previous.checkedAt)<5*60*1000)
               return {...previous,retained:true,message:"Geçici erişim hatası; son 5 dakika içinde doğrulanan fiyat gösteriliyor."};
           }
-          if (adapter.getCatalogProduct) { try { product = await adapter.getCatalogProduct(url); } catch { /* Return an explicit unreadable source. */ } }
+          if (!isRetryableStoreError(error) && adapter.getCatalogProduct) { try { product = await adapter.getCatalogProduct(url); } catch { /* Return an explicit unreadable source. */ } }
         }
         const verified = product?.price && product.currency === "TRY" && product.vatIncluded === true && product.quantityVerified === true;
         return {url, name:product?.name || "", key:product ? catalogIdentity(product) : "",
@@ -63,7 +64,8 @@ export async function previewCatalogProducts(urls: string[], force = false) {
           checkedAt:product?.checkedAt || new Date().toISOString(), packageQuantity:product?.packageQuantity || 1,
           maxAgeMs:product?.readMethod==='snapshot'?(phase==='B'?SNAPSHOT_TTL_MS:LIVE_TTL_MS):5*60*1000,
           sources:product ? catalogueSources(product) : [],
-          message:verified ? product?.readMethod==='snapshot'?'Kayıtlı fiyat; son kontrol: '+product.checkedAt:'' : message || "Fiyat ve satış birimi doğrulanamadı."};
+          retained:Boolean(product?.readWarning),
+          message:product?.readWarning || (verified ? product?.readMethod==='snapshot'?'Kayıtlı fiyat; son kontrol: '+product.checkedAt:'' : message || "Fiyat ve satış birimi doğrulanamadı.")};
       })();
       if (cache.size>=400) cache.delete(cache.keys().next().value!);
       cache.set(cacheKey,{at:Date.now(),value});

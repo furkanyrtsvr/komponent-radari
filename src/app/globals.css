@@ -35,3 +35,5 @@
 .different-products{margin:16px 0;padding:12px;border:1px solid #dce5df;border-radius:8px}
 .different-products summary{cursor:pointer}
 .different-products small{display:block}
+
+.price-phase{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:16px}.price-phase details{flex-basis:100%;font-size:13px}.price-phase details p{max-width:900px}.merchant-card-price{font-size:13px;color:var(--primary);margin:8px 0 0}

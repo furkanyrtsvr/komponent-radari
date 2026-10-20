@@ -56,12 +56,14 @@ async function search(message) {
    try {
     const rows = await loadChunk(c.key);
     for (const [path,name,sourceCategory] of rows) {
+     const actualGroup=catalogGroup(name,c.group);
+     if(group!=='all'&&actualGroup!==group)continue;
      if (terms.length && !matchesQuery(name)) continue;
      const key = productIdentity({name,category:sourceCategory});
      let record = groups.get(key);
      if (!record) {
       if (!terms.length && (browseCounts.get(s.id)||0)>=quota) continue;
-      record = {key,name,shortName:shortName(name,key),group:key.startsWith('model:xr2206:generator')?'Ölçüm ve Test':catalogGroup(name,c.group),sources:[]};
+      record = {key,name,shortName:shortName(name,key),group:key.startsWith('model:xr2206:generator')?'Ölçüm ve Test':actualGroup,sources:[]};
       groups.set(key,record);
       browseCounts.set(s.id,(browseCounts.get(s.id)||0)+1);
      }

@@ -1,6 +1,7 @@
 import {adapterFor} from '../../stores/registry';
 import type {ExtractedProduct,StoreConfig} from '../../stores/types';
-import {one,listIn,binding,isSupabase,supabase} from './db';
+import {one,listIn,binding,isSupabase,supabase,config} from './db';
+import {storeCatalog} from '../catalog';
 import {cookies} from 'next/headers';
 import {LIVE_TTL_MS} from '../pricing';
 import {snapshotProduct,snapshotUsable,SNAPSHOT_TTL_MS,validateSnapshot,SNAPSHOT_UPSERT_SQL,upgradeSnapshotReader,type SnapshotRecord} from '../catalog-snapshot';
@@ -58,7 +59,7 @@ export async function readProduct(store:StoreConfig,url:string,force=false):Prom
  }
  try{return await rememberProduct(store,await adapterFor(store).getProduct(url));}catch(error){
   const cached=await readSnapshot(store,url,Infinity);
-  if(cached)return cached;
+  if(cached)return {...cached,readWarning:'Canlı yenileme başarısız; kayıtlı fiyatın kontrol tarihi korunuyor. '+(error instanceof Error?error.message:'Mağaza okunamadı.')};
   throw error;
  }
 }
@@ -85,6 +86,8 @@ export async function snapshotStatus(){
   if(all.error||fresh.error||last.error)throw all.error||fresh.error||last.error;
   totals={verified:all.count||0,fresh:fresh.count||0,lastCheckedAt:last.data?.[0]?.checked_at||null};
  }else totals=(await binding().prepare('SELECT COUNT(*) AS verified,COALESCE(SUM(checked_at>? AND checked_at<=?),0) AS fresh,MAX(checked_at) AS lastCheckedAt FROM catalog_snapshots').bind(since,at).first()) as typeof totals;
- return {phase:await pricePhase(),...totals,ttlHours:12};
+ const collector=await one<{updated_at:string;payload:string}>('catalog_collection_runs',{id:'latest'});
+ const perStore=isSupabase() ? [] : await binding().prepare('SELECT store_id,COUNT(*) AS verified,SUM(checked_at>? AND checked_at<=?) AS fresh,MAX(checked_at) AS lastCheckedAt FROM catalog_snapshots GROUP BY store_id').bind(since,at).all();
+ return {phase:await pricePhase(),...totals,ttlHours:12,collectorConfigured:config('CATALOG_INGEST_SECRET').length>=32,collector:collector?{updatedAt:collector.updated_at,...JSON.parse(collector.payload)}:null,stores:storeCatalog.map(store=>({id:store.id,name:store.name,...(!Array.isArray(perStore)?perStore.results.find((row:any)=>row.store_id===store.id)||{}:{})}))};
 }
 export async function snapshotSources(urls:string[]){return listIn<SnapshotRow>('catalog_snapshots','url',urls);}

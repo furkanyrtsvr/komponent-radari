@@ -25,11 +25,11 @@ export function parseSammProduct(html:string,url:string):ExtractedProduct {
   const net=netLabel?parsePrice(netLabel[1]):null;
   const visible=scope.find('[class*="final-price"]').map((_,e)=>parsePrice($(e).text())).get();
   if(net===null || net<=0 || net>=p.price || !visible.includes(p.price))throw new Error('SAMM görünür KDV dahil fiyatı doğrulanamadı.');
-  const controls=scope.find('input[value="1"]').filter((_,e)=>{
+  const controls=$('input[value="1"]').filter((_,e)=>{
     const parent=$(e).parent();return parent.find('button').length===2&&parent.find('button').first().is('[disabled]');
   });
   const channels=(d.salesChannels||[]).filter((c:Data)=>c.status==='VISIBLE');
-  if(channels.length!==1 || channels[0].quantitySettings || channels[0].minQuantityPerCart!=null || !controls.length)throw new Error('SAMM satış miktarı veya satış adımı doğrulanamadı.');
+  if(channels.length!==1 || channels[0].quantitySettings || channels[0].minQuantityPerCart!=null || (!controls.length && !(Number(v.stock)===0&&p.stockStatus==='out_of_stock')))throw new Error('SAMM satış miktarı veya satış adımı doğrulanamadı.');
   const description=load(String(d.description||'')).text().replace(/\s+/g,' ').trim();
   // The product title omits length; enrich only from an unambiguous description.
   let name=p.name;

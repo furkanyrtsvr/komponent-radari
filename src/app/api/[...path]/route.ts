@@ -56,7 +56,6 @@ export const dynamic = "force-dynamic";
 const str = z.string().min(1).max(180),
   qty = z.number().int().min(1).max(100000);
 const settings = z.object({
-  shippingEstimate: z.number().int().min(0).max(100000).optional(),
   maxStores: z.number().int().min(1).max(14).optional(),
   exactOnly: z.boolean().optional(),
   allowLastKnown:z.boolean().optional(),
@@ -442,7 +441,7 @@ async function handle(request: Request, context: Context) {
       try{const refreshed=await syncLive([imported.product.id],false);refreshSummary=refreshed.message;}catch(error){console.warn("URL product refresh failed",error instanceof Error?error.name:"UnknownError");}
       const cart=await cartView(cid,u.id);
       const [validOffers,stores]=await Promise.all([offersForProducts([imported.product],'live',cart.offerSelections),storesForSource("live")]);
-      const quotes=linkQuotes(validOffers,applyCartShipping(stores,cart.shippingSettings || [],z.number().int().min(0).max(100000).parse(body.shippingEstimate ?? 8000)),quantity,false,true);
+      const quotes=linkQuotes(validOffers,applyCartShipping(stores,cart.shippingSettings || []),quantity,false,true);
       const excludedQuotes=linkQuotes(validOffers.filter(offer=>offer.excluded),applyCartShipping(stores,cart.shippingSettings || []),quantity,true,true);
       const availability=validOffers.filter(offer=>!offer.excluded && !offer.variant_conflict && isFresh(offer)).map(offer=>({store:stores.find(store=>store.id===offer.store_id)?.name || offer.store_id,url:offer.product_url,status:offer.stock_status,price:offer.price_gross}));
       const compatible=quotes.filter(q=>!q.variantConflict),outOfStock=availability.some(offer=>offer.status==='out_of_stock');

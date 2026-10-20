@@ -7,6 +7,9 @@ import {
   uniqueIndex,
 } from "drizzle-orm/sqlite-core";
 const pk = () => text("id").primaryKey();
+export const catalogCollectionRuns=sqliteTable('catalog_collection_runs',{
+ id:pk(),updated_at:text().notNull(),payload:text().notNull(),
+});
 export const catalogSnapshots=sqliteTable('catalog_snapshots',{
  id:pk(),store_id:text().notNull(),url:text().notNull(),checked_at:text().notNull(),payload:text().notNull(),
 },t=>[uniqueIndex('snapshot_store_url').on(t.store_id,t.url),index('snapshot_checked').on(t.checked_at)]);

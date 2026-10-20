@@ -6,6 +6,7 @@ Amaç, aynı parçayı farklı adlarla satan mağazaları bulmak ve bir sepeti h
 
 [Yayımlanan uygulama](https://komponent-radari.equalwood4.chatgpt.site/)
 
+[GitHub deposu](https://github.com/furkanyrtsvr/komponent-radari)
 
 ## Görseller
 
@@ -30,6 +31,7 @@ Uygulama yerelde çalıştırılarak alınan dört ekran görüntüsü.
 
 
 
+
 ## Özellikler
 
 - Ürün adı veya desteklenen mağazanın HTTPS ürün bağlantısıyla arama, karşılaştırma ve sepete ekleme.
@@ -46,7 +48,7 @@ Uygulama yerelde çalıştırılarak alınan dört ekran görüntüsü.
 
 Direnç.net, Robotistan, Robolink Market, Robot Sepeti, SAMM Market, Motorobit, Özdisan, Robo90, Komponentci, Robiz, Robotzade, Robitshop, Robocombo, Robotronik, Pil Paketi, Pil Sitesi, E komponent, Ulutaş Elektronik, Hobi Devre ve F1 Depo.
 
-Katalog, 3 Ekim 2026 tarihli site haritalarından 1.058.051 adres içerir. **Bu sayı doğrulanmış fiyat sayısı değildir.** Okunmamış fiyat boş kalır. Her mağazanın bütün sayfalarının kesintisiz okunabildiği iddia edilmez.
+Katalog, 3 Ekim 2026 tarihli site haritalarından 1.058.031 adres içerir. **Bu sayı doğrulanmış fiyat sayısı değildir.** Okunmamış fiyat boş kalır. Her mağazanın bütün sayfalarının kesintisiz okunabildiği iddia edilmez.
 
 ## Hızlı başlangıç
 
@@ -57,7 +59,7 @@ npm run install:ci
 npm run build
 ```
 
-İlk yerel veritabanına [kurulum rehberindeki](docs/KURULUM.md) **altı SQL geçişini** sırayla uygulayın. Sonra:
+İlk yerel veritabanına [kurulum rehberindeki](docs/KURULUM.md) **yedi SQL geçişini** sırayla uygulayın. Sonra:
 
 ```sh
 npm run dev
@@ -119,7 +121,7 @@ Ağ kullanan entegrasyon testleri ayrı yerel sunucu ister ve test sepetleri olu
 
 ## Kapsam ve sınırlar
 
-Kargo, kullanıcı ayarı veya doğrulanmış kural yoksa tahminidir. Kuponlar, adrese/desiye özel taşıma, aynı ihtiyacın mağazalar arasında bölünmesi ve otomatik satın alma kapsam dışıdır. Arama sınırına ulaşılırsa minimumun kanıtlanmadığı belirtilir; eksik sepet optimum diye sunulmaz.
+Kargo, 20 mağaza için tanımlı ücret ve ücretsiz kargo eşiklerinden hesaplanır; kullanıcı bu değerleri sepetinde değiştirebilir. Kuponlar, adrese/desiye özel taşıma, aynı ihtiyacın mağazalar arasında bölünmesi ve otomatik satın alma kapsam dışıdır. Arama sınırına ulaşılırsa minimumun kanıtlanmadığı belirtilir; eksik sepet optimum diye sunulmaz.
 
 Takipler uygulama içinde gösterilir; e-posta/push teslimatı bağlı değildir. Sites üzerindeki ChatGPT üyeliği yerelde test hesabıyla temsil edilir; başka barındırma ortamına aynen taşınmış bir üyelik servisi değildir. Alternatif Supabase üyeliği ayrıca yapılandırılmalıdır.
 
@@ -132,3 +134,5 @@ Paket kaynak kodunu, bağımlılık kilidini, mağaza adres dizinini, testleri v
 ## Otomatik sürümler
 
 [GitHub Release akışı](docs/SURUMLEME.md), main dalına gönderilen değişiklikleri test ve derlemeden sonra sürümler. İlk aktarım yerel kaynağın cc5b940117f6b9bb6a502db8862f387dad57303b commit görüntüsünden hazırlanmıştır.
+
+20 Ekim 2026: 183 test geçti; altı kategoride 84 canlı ürün sayfasından 76 fiyat doğrulandı. [Stabilite ve mağaza kapsamı](docs/STABILITE_2026-10-20.md).

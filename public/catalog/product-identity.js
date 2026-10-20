@@ -305,6 +305,9 @@ function readProductIdentity(value){
 export function catalogGroup(name,current='Diğer') {
  const s=technicalText(name);
  if(isAccessory(s))return current;
+ // More specific assembled products precede incidental chips and sensors.
+ if(/\b(?:motor|servo)\s+(?:surucu|driver)|\b(?:l298n|a4988|drv8825)\b/.test(s))return 'Modüller';
+ if(/\b(?:sensor\w*|modul\w*|module|kart\w*|board|devkit|gelistirme)\b/.test(s)&&/\b(?:arduino|esp32|esp8266|stm32|raspberry|nodemcu)\b/.test(s)&&!/\b(?:sensor\w*|surucu\w*|role|relay)\b/.test(s))return 'Geliştirme Kartları';
  if(jumperDetails(s)||/\b(kablo\w*|cable)\b/.test(s))return 'Kablolar';
  if(/\b(buton|button|switch)\b/.test(s))return 'Butonlar';
  if(/\b(sensor\w*|dht\d+|mpu\d+|hcsr04|ds18b20)\b/.test(s))return 'Sensörler';
@@ -312,6 +315,10 @@ export function catalogGroup(name,current='Diğer') {
  if(/\b(direnc|resistor|rezistor)\b/.test(s))return 'Dirençler';
  if(/\b(kondansator|capacitor|kapasitor)\b/.test(s))return 'Kondansatörler';
  if(arduinoIdentity(s) || /\b(?:gelistirme|devkit)\b/.test(s))return 'Geliştirme Kartları';
+ if(/\b(?:konnektor\w*|konektor\w*|soket\w*|klemens\w*|header|connector)\b/.test(s))return 'Bağlantı Elemanları';
+ if(/\b(?:pil|batarya\w*|battery|adaptor\w*|guc kaynagi|power supply|sarj\w*)\b/.test(s))return 'Güç ve Pil';
+ if(/\b(?:modul\w*|module|donusturucu\w*|regulator\w*)\b/.test(s))return 'Modüller';
+ if(/\b(?:entegre\w*|ic|chip|mosfet\w*|transistor\w*)\b/.test(s))return 'Entegreler';
  return current;
 }
 export function searchableText(value) {

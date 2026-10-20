@@ -142,15 +142,13 @@ export async function cartOptimization(
   // missing products here; the workspace already renews prices independently.
   const missingPrices=[...new Set(view.items.filter(item=>offerAvailability(offers.filter(o=>o.canonical_product_id===item.canonical_product_id && (!item.preferred_manufacturer||o.manufacturer===item.preferred_manufacturer)),item.quantity,{stores:options.selectedStores,exact:options.exactOnly,allowLastKnown:options.allowLastKnown!==false}).price===null).map(item=>item.canonical_product_id))];
   if(source==='live' && missingPrices.length){refresh=await syncLive(missingPrices);offers=await offersForProducts(products,source,view.offerSelections);}
-  const shippingEstimate = options.shippingEstimate ?? 8000;
+  const pricedStores=applyCartShipping(stores,view.shippingSettings || []);
+  const missingShipping=pricedStores.filter(store=>store.shipping_known===false&&(!options.selectedStores||options.selectedStores.includes(store.id))&&offers.some(offer=>offer.store_id===store.id));
+  if(missingShipping.length)throw new HttpError(400,'Mağazalar bölümünde kargo ücreti ve eşiğini tanımlayın: '+missingShipping.map(s=>s.name).join(', '));
   const result = optimize(
     view.items,
     offers.filter(offer=>!offer.excluded),
-    applyCartShipping(stores,view.shippingSettings || [],shippingEstimate).map((s) =>
-      source === "live" && !s.shipping_known
-        ? { ...s, shipping_base_price: shippingEstimate }
-        : s,
-    ),
+    pricedStores,
     { exactOnly: source === "demo", allowLastKnown:source==='live', ...options },
   );
   if(source==='live') {
@@ -165,7 +163,7 @@ export async function cartOptimization(
   return {
     ...result,
     shippingEstimated: source === "live" && [...result.scenarios,...(result.exactScenarios || [])].some(scenario=>scenario.groups.some(group=>stores.some(store=>store.id===group.storeId && !store.shipping_known && !(view.shippingSettings || []).some(rule=>rule.store_id===store.id)))),
-    shippingAssumption: source === "live" ? shippingEstimate : null,
+    shippingAssumption: null,
     ...(refresh ? {refreshSummary:{checked:refresh.checked,cached:refresh.cached,failed:refresh.failed,retained:refresh.retained,message:refresh.message}}:{}),
   };
 }

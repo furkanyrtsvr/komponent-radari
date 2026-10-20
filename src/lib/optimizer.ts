@@ -9,7 +9,6 @@ import type {
 } from "./domain";
 export type Options = {
   maxStores?: number;
-  shippingEstimate?: number;
   exactOnly?: boolean;
   selectedStores?: string[];
   minimumSaving?: number;

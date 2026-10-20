@@ -3,6 +3,7 @@ import type { PriceTier } from "../lib/pricing";
 export type ExtractedProduct = {
   checkedAt?:string;
   readMethod?:'snapshot';
+  readWarning?:string;
   url: string;
   name: string;
   mpn: string;

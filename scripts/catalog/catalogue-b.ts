@@ -1,5 +1,6 @@
 /** Independent merchant collector. No Cloudflare runtime or browser session required. */
 import {DatabaseSync} from 'node:sqlite';
+import {collectionQueue} from './queue';
 import {readFileSync,mkdirSync,openSync,closeSync,unlinkSync,existsSync,writeFileSync} from 'node:fs';
 import {createReadStream} from 'node:fs';
 import {createInterface} from 'node:readline';
@@ -34,6 +35,7 @@ async function run(){
   db.prepare("INSERT OR REPLACE INTO metadata VALUES('generation',?)").run(generation);
  }
  const site=arg('site','https://komponent-radari.equalwood4.chatgpt.site'),secret=process.env.CATALOG_INGEST_SECRET;
+ const startedAt=new Date().toISOString(),storeErrors=new Map<string,string>();
  const auth:Record<string,string>=secret?{authorization:`Bearer ${secret}`}:{},summary={indexed:db.prepare('SELECT COUNT(*) AS n FROM products WHERE active=1').get()!.n,checked:0,failed:0,imported:0,uploaded:0,uploadError:''};
  if(arg('feed')){
   let lineNo=0;for await(const line of createInterface({input:createReadStream(arg('feed')),crlfDelay:Infinity})){lineNo++;if(!line.trim())continue;try{const record=validateSnapshot(JSON.parse(line),storeCatalog);if(save(record))summary.imported++;}catch(e){summary.failed++;console.error(`Veri satırı ${lineNo}: ${e instanceof Error?e.message:e}`);}}
@@ -45,8 +47,8 @@ async function run(){
   if(!Number.isInteger(limit)||selected.some(id=>!storeCatalog.some(s=>s.id===id)))throw new Error('Geçersiz mağaza veya kayıt sınırı.');
   await Promise.all(storeCatalog.filter(s=>selected.includes(s.id)).map(async store=>{
    let delay=3000;
-   try{const r=await fetch(`https://${store.domain}/robots.txt`,{headers:{'user-agent':'EUB-PriceComparison/1.0 (+public product metadata; no authentication)'},signal:AbortSignal.timeout(10000)});if(!r.ok)throw new Error(`robots HTTP ${r.status}`);const text=await r.text();delay=Math.max(delay,...[...text.matchAll(/^\s*Crawl-delay:\s*([\d.]+)/gim)].map(m=>Number(m[1])*1000));}catch(e){summary.failed++;console.error(`${store.id}: ${e instanceof Error?e.message:e}`);return;}
-   const rows=db.prepare(`SELECT url FROM products WHERE store_id=? AND active=1 ${knownOnly?'AND (payload IS NOT NULL OR priority>=10)':''} AND (next_due<=? OR priority>=10 AND COALESCE(last_attempt,'')<?) ORDER BY priority DESC,(payload IS NOT NULL) DESC,COALESCE(last_attempt,'') ASC,url LIMIT ?`).all(store.id,new Date().toISOString(),new Date(Date.now()-3600000).toISOString(),limit) as {url:string}[];
+   try{const r=await fetch(`https://${store.domain}/robots.txt`,{headers:{'user-agent':'EUB-PriceComparison/1.0 (+public product metadata; no authentication)'},signal:AbortSignal.timeout(10000)});if(!r.ok)throw new Error(`robots HTTP ${r.status}`);const text=await r.text();delay=Math.max(delay,...[...text.matchAll(/^\s*Crawl-delay:\s*([\d.]+)/gim)].map(m=>Number(m[1])*1000));}catch(e){summary.failed++;storeErrors.set(store.id,String(e).slice(0,500));console.error(`${store.id}: ${e instanceof Error?e.message:e}`);return;}
+   const rows=collectionQueue(db,store.id,limit,knownOnly);
    for(const row of rows){
     await new Promise(r=>setTimeout(r,delay));
     try{
@@ -63,7 +65,11 @@ async function run(){
   const pending=db.prepare(`SELECT store_id,url,payload,checked_at FROM products WHERE payload IS NOT NULL AND uploaded_at IS NULL AND checked_at>? ORDER BY checked_at`).all(new Date(Date.now()-12*3600000).toISOString()) as {store_id:string;url:string;payload:string;checked_at:string}[];
   for(let offset=0;offset<pending.length;offset+=50){const batch=pending.slice(offset,offset+50);try{let result:{saved:number;ignored:number}|undefined;for(let attempt=0;attempt<3;attempt++){try{const r=await fetch(`${site}/api/catalog-snapshot`,{method:'POST',headers:{...auth,'content-type':'application/json'},body:JSON.stringify({records:batch.map(row=>JSON.parse(row.payload))}),signal:AbortSignal.timeout(20000)});if(!r.ok)throw new Error(`HTTP ${r.status}: ${(await r.text()).slice(0,200)}`);result=await r.json() as {saved:number;ignored:number};break;}catch(error){if(attempt===2)throw error;await new Promise(resolve=>setTimeout(resolve,1000*(attempt+1)));}}if(!result)throw new Error('Arşiv aktarımı yanıt vermedi.');if(result.saved+result.ignored!==batch.length)throw new Error('Aktarım sayısı uyuşmuyor.');const mark=db.prepare('UPDATE products SET uploaded_at=? WHERE store_id=? AND url=? AND checked_at=?');for(const row of batch)mark.run(new Date().toISOString(),row.store_id,row.url,row.checked_at);summary.uploaded+=batch.length;}catch(e){summary.uploadError=e instanceof Error?e.message:String(e);console.error(summary.uploadError);break;}}
  }
- writeFileSync(resolve(dir,'status.json'),JSON.stringify({...summary,at:new Date().toISOString(),stores:db.prepare('SELECT store_id,COUNT(*) AS indexed,SUM(payload IS NOT NULL) AS verified FROM products WHERE active=1 GROUP BY store_id').all()},null,2));
+ const stats=db.prepare('SELECT store_id,COUNT(*) AS indexed,SUM(payload IS NOT NULL) AS verified FROM products WHERE active=1 GROUP BY store_id').all() as {store_id:string;indexed:number;verified:number}[];
+ const status={state:'completed',startedAt,...summary,stores:storeCatalog.map(store=>({...stats.find(row=>row.store_id===store.id)||{store_id:store.id,indexed:0,verified:0},error:storeErrors.get(store.id)||(!stats.some(row=>row.store_id===store.id)?'Ürün adres dizini entegrasyonu yok.':null)}))};
+ writeFileSync(resolve(dir,'status.json'),JSON.stringify({...status,at:new Date().toISOString()},null,2));
+ if(secret){const r=await fetch(`${site}/api/catalog-snapshot`,{method:'PUT',headers:{...auth,'content-type':'application/json'},body:JSON.stringify(status),signal:AbortSignal.timeout(20000)});if(!r.ok)throw new Error(`Toplayıcı durumu kaydedilemedi: HTTP ${r.status}`);}
+
  console.log(JSON.stringify(summary));if(summary.uploadError)process.exitCode=1;
 }
 try{await run();}catch(e){console.error(e instanceof Error?e.message:e);process.exitCode=1;}finally{db.close();unlinkSync(lock);}

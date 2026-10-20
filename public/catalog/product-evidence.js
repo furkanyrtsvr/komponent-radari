@@ -23,6 +23,7 @@ const families=[
  ['servo',/\bservo\b/],
  ['motor',/\b(?:motor|stepper)\b/],
  ['battery',/\b(?:batarya\w*|battery|pil|lipo|liion)\b/],
+ ['power-supply',/\b(?:adaptor\w*|adapter\w*|guc\s+kaynagi|power\s+supply)\b/],
  ['regulator',/\b(?:regulator\w*|buck|boost)\b/],
  ['charger',/\b(?:sarj\w*|charger\w*)\b/],
  ['converter',/\b(?:donusturucu\w*|converter\w*)\b/],
@@ -43,7 +44,7 @@ export function isDiscoveryModel(code){return !/^(?:pmu|sku|urun|pin|pot)\d/.tes
 const models=s=>[...new Set((fold(s).replace(/\b([a-z]{1,8})\s+(\d{2,}[a-z0-9]*)\b/g,(all,prefix,rating)=>/^\d+(?:d\d+)?(?:ohm|kohm|mohm|pf|nf|uf|uh|mh|mm|cm|ma|a|v|w|hz|khz|mhz|k|r)$/.test(rating)?all:prefix+rating).match(/\b(?:[a-z]{1,8}\d{2,}|\d{1,3}[a-z]{1,3}\d{2,})[a-z0-9]*\b/g)||[]).filter(isDiscoveryModel))];
 /** @returns {string[]} */
 export function evidenceRatings(name){
- const s=fold(name).replace(/\b(\d+)v(\d+)\b/g,'$1d$2v').replace(/\b(\d+(?:d\d+)?)\s*([km])\s*ohm\b/g,'$1$2');
+ const s=fold(String(name).replace(/\b(\d+)\s*\/\s*(\d+)\s*w\b/gi,(_,a,b)=>`${Number(a)/Number(b)}W`)).replace(/\b(\d+)v(\d+)\b/g,'$1d$2v').replace(/\b(\d+(?:d\d+)?)\s*([km])\s*ohm\b/g,'$1$2');
  const scale={ohm:1,r:1,k:1000,kohm:1000,mohm:1000000,pf:1,nf:1000,uf:1000000,uh:1,mh:1000,h:1000000,mm:1,cm:10,m:1000,v:1,a:1,ma:.001,w:1,mhz:1000000,khz:1000,hz:1};
  const unitFamily={ohm:'ohm',r:'ohm',k:'ohm',kohm:'ohm',mohm:'ohm',pf:'pf',nf:'pf',uf:'pf',uh:'uh',mh:'uh',h:'uh',mm:'mm',cm:'mm',m:'mm',v:'v',a:'a',ma:'a',w:'w',mhz:'hz',khz:'hz',hz:'hz'};
  return [...new Set([...s.matchAll(/\b(\d+(?:d\d+)?)\s*(kohm|mohm|ohm|mhz|khz|hz|pf|nf|uf|uh|mh|mm|cm|ma|k|r|v|a|w|h)\b/g)].map(m=>`${Number(m[1].replace('d','.'))*scale[m[2]]}${unitFamily[m[2]]}`))];
@@ -82,7 +83,10 @@ const fieldNames=[
  ['resistance',/^(?:direnc(?: degeri)?|resistance|maksimum direnc)$/],
  ['capacitance',/^(?:kapasite|kapasitans|capacitance)$/],
  ['inductance',/^(?:induktans|inductance)$/],
- ['output-voltage',/^(?:cikis voltaji|output voltage)$/],
+ ['output-voltage',/^(?:cikis voltaji|cikis gerilimi|output voltage)$/],
+ ['input-voltage',/^(?:giris voltaji|giris gerilimi|input voltage)$/],
+ ['current',/^(?:akim|akim degeri|nominal akim|cikis akimi|current|rated current|output current)$/],
+ ['dimensions',/^(?:boyut|boyutlar|olculer|dimensions|size)$/],
  ['pins',/^(?:pin sayisi|bacak sayisi|number of pins|pin count)$/],
  ['channels',/^(?:kanal sayisi|number of channels|channel count)$/],
  ['package',/^(?:kilif kasa|package case|package|kilif)$/],
@@ -91,6 +95,10 @@ const fieldNames=[
  ['mounting',/^(?:montaj tipi|mounting type)$/],
 ];
 const fieldValue=v=>{const ratings=evidenceRatings(v);return ratings.length?ratings.sort().join(','):fold(v).replace(/\b(?:red|kirmizi)\b/g,'red').replace(/\b(?:blue|mavi)\b/g,'blue').replace(/\b(?:green|yesil)\b/g,'green').replace(/\b(?:male|erkek)\b/g,'male').replace(/\b(?:female|disi)\b/g,'female').replace(/\s/g,'');};
+function dimensionValue(value){
+ const m=fold(String(value).replace(/×/g,'x')).match(/\b(\d+(?:d\d+)?)\s*x\s*(\d+(?:d\d+)?)(?:\s*x\s*(\d+(?:d\d+)?))?\s*(mm|cm)\b/);
+ return m?m.slice(1,4).filter(Boolean).map(n=>Number(n.replace('d','.'))*(m[4]==='cm'?10:1)).join('x')+'mm':'';
+}
 function getEvidence(value){
  const title=String(value.name||'');
  let spec={};try{spec=JSON.parse(value.specifications||'{}');}catch{}
@@ -110,7 +118,7 @@ function getEvidence(value){
  for(const p of Array.isArray(spec.properties)?spec.properties:[]){
   if(!p||typeof p!=='object')continue;
   const field=fieldNames.find(([,re])=>re.test(fold(p.name)))?.[0];
-  if(field&&p.value!==undefined){const val=fieldValue(p.value);if(val&&val.length<150)attributes[field]=val;}
+  if(field&&p.value!==undefined){const val=field==='dimensions'?dimensionValue(p.value):fieldValue(p.value);if(val&&val.length<150)attributes[field]=val;}
  }
  const family=evidenceFamily(name),normalized=fold(name);
  const channels=normalized.match(/\b(\d+)\s*(?:kanal|channel)\b/)?.[1];
@@ -122,11 +130,14 @@ function getEvidence(value){
  if(['connector','switch','relay','potentiometer'].includes(family)){
   const pins=normalized.match(/\b(\d+)\s*(?:pin|bacak|uc)\b/)?.[1];if(pins&&!attributes.pins)attributes.pins=pins;
  }
- if(['led','connector','inductor','fuse','crystal','thermistor','battery'].includes(family)){
+ if(family){
   for(const unit of ['ohm','pf','uh','mm','v','a','w','hz']){
    const ratings=evidenceRatings(name).filter(r=>r.endsWith(unit));if(ratings.length)attributes['rating-'+unit]=ratings.sort().join(',');
   }
  }
+ // A unit after the last axis applies to the whole explicit dimension tuple.
+ const dimensions=dimensionValue(name);
+ if(dimensions&&!attributes.dimensions)attributes.dimensions=dimensions;
  if(family==='connector'){
   const gender=normalized.match(/\b(?:erkek|disi|male|female)\b/)?.[0];if(gender)attributes.gender=fieldValue(gender);
  }

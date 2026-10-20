@@ -1,7 +1,9 @@
 import {load} from 'cheerio';
 import {JsonLdAdapter,parsePrice,parseProduct} from '../base';
 import {inlineObject} from '../inline-data';
+import {parseIkasProduct} from '../ikas';
 export function parseRobocomboProduct(html:string,url:string){
+  if(html.includes('__NEXT_DATA__'))return parseIkasProduct(html,url);
   const $=load(html),model=inlineObject(html,/var\s+productDetailModel\s*=\s*\{/);
   // Ticimax adds the stock code to h1; JSON-LD carries the actual name.
   const h=$('h1').first();

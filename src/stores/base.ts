@@ -7,6 +7,7 @@ import { validateProductFacts } from "./validate-product-facts";
 import {waitForSignal} from "../lib/async-deadline";
 const MAX_BYTES = 2_000_000;
 const robotsCache=new Map<string,{at:number;failed:boolean;value:Promise<string>}>();
+const nextMerchantRead=new Map<string,number>();
 export function decodeHtml(bytes:Uint8Array,contentType="") {
   const header=contentType.match(/charset\s*=\s*["']?([\w-]+)/i)?.[1];
   const prefix=new TextDecoder("windows-1252").decode(bytes.subarray(0,4096));
@@ -283,6 +284,12 @@ export class JsonLdAdapter implements StoreAdapter {
       throw new Error(
         "Mağazanın robots.txt kuralları bu sayfanın okunmasına izin vermiyor.",
       );
+    const delay=Math.max(0,...[...robots.matchAll(/^\s*Crawl-delay:\s*([\d.]+)/gim)].map(m=>Number(m[1])*1000));
+    if(delay){
+      const at=Math.max(Date.now(),nextMerchantRead.get(url.origin)||0);
+      nextMerchantRead.set(url.origin,at+delay);
+      if(at>Date.now())await waitForSignal(new Promise<void>(resolve=>setTimeout(resolve,at-Date.now())),signal);
+    }
     return boundedFetch(url, this.store.domain,signal);
   }
   async getProduct(raw: string) {

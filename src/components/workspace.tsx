@@ -226,7 +226,6 @@ export default function Workspace({
     [category, setCategory] = useState("all"),
     [onlyStock, setOnlyStock] = useState(true),
     [exact, setExact] = useState(false),
-    [shippingEstimate, setShippingEstimate] = useState(80),
     [syncMessage, setSyncMessage] = useState(""),
     [maxStores, setMaxStores] = useState("0"),
     [storeFilter, setStoreFilter] = useState<string[]>([]),
@@ -473,7 +472,6 @@ export default function Workspace({
   const settings = () => ({
     ...(maxStores !== "0" ? { maxStores: Number(maxStores) } : {}),
     exactOnly: exact,
-    shippingEstimate: Math.round(shippingEstimate * 100),
     selectedStores: storeFilter,
     minimumSaving: Math.round(minSaving * 100),
   });
@@ -1307,31 +1305,6 @@ export default function Workspace({
                             Yalnızca stokta olan teklifler
                           </div>
                         </div>
-                        {!data.demo && (
-                          <div className="shipping-assumption">
-                            <Field label="Mağaza başına kargo tahmini (₺)">
-                              <input
-                                aria-label="Kargo tahmini"
-                                type="number"
-                                min="0"
-                                max="1000"
-                                value={shippingEstimate}
-                                onChange={(e) =>
-                                  updateSettings(() =>
-                                    setShippingEstimate(
-                                      Math.max(0, Number(e.target.value)),
-                                    ),
-                                  )
-                                }
-                              />
-                            </Field>
-                            <p>
-                              Mağazalar kargo ücretini ödeme ekranında
-                              hesaplıyor. Toplamlar bu tahmine göre hesaplanır;
-                              doğrulanan ücretsiz kargo eşiği uygulanır.
-                            </p>
-                          </div>
-                        )}
                         <details className="advanced">
                           <summary>
                             Gelişmiş tercihler <Settings2 size={14} />
@@ -1442,7 +1415,7 @@ export default function Workspace({
                           {result.optimal
                             ? data.demo
                               ? "Kesin sonuç"
-                              : "Kargo tahminine göre en iyi sonuç"
+                              : "Mağaza kargo ayarlarıyla en iyi sonuç"
                             : "Bulunan en iyi sonuç"}
                         </span>
                       )}
@@ -2206,7 +2179,7 @@ export default function Workspace({
             <Field label="İhtiyaç adedi"><input type="number" min="1" max="100000" value={form.quantity} onChange={event=>patch("quantity",event.target.value)}/></Field>
             <Button disabled={!!busy || !form.url || !canAdd} onClick={()=>void work("url",async()=>{
               setUrlResult(null);
-              const found=await api<LinkResult>("url","POST",{url:form.url.trim(),cartId:cart!.id,quantity:Number(form.quantity),shippingEstimate:Math.round(shippingEstimate*100)});
+              const found=await api<LinkResult>("url","POST",{url:form.url.trim(),cartId:cart!.id,quantity:Number(form.quantity)});
               setUrlResult(found);setCart(found.cart);await load(false,found.cart.id);changed();toast.success("Ürün sepete eklendi ve mağazalar karşılaştırıldı.");
             })}>{busy==="url"?<LoaderCircle className="animate-spin" size={16}/>:<Link2 size={16}/>} En ucuzu bul ve sepete ekle</Button>
             {busy==="url" && <p role="status">Ürün modeli ve varyantı okunuyor; diğer mağazaların fiyatları karşılaştırılıyor…</p>}
@@ -2369,13 +2342,8 @@ export default function Workspace({
                                   </small>
                                 )}
                                 <small>
-                                  Kargo ödeme ekranında · tahmin{" "}
-                                  {money(
-                                    data?.demo
-                                      ? storeMap.get(o.store_id)
-                                          ?.shipping_base_price || 0
-                                      : shippingEstimate * 100,
-                                  )}
+                                  Mağaza kargo ücreti: {money(storeMap.get(o.store_id)?.shipping_base_price || 0)}
+                                  {storeMap.get(o.store_id)?.free_shipping_threshold != null && ` · ${money(storeMap.get(o.store_id)!.free_shipping_threshold!)} üzeri ücretsiz`}
                                 </small>
                               </TableCell>
                               <TableCell>

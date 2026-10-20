@@ -18,7 +18,8 @@ $migrations = @(
   'drizzle/0002_stiff_lockheed.sql',
   'drizzle/0003_even_thanos.sql',
   'drizzle/0004_tense_pepper_potts.sql',
-  'drizzle/0005_absent_meltdown.sql'
+  'drizzle/0005_absent_meltdown.sql',
+  'drizzle/0006_catalog_collection_runs.sql'
 )
 foreach ($migration in $migrations) {
   node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file $migration
@@ -30,7 +31,7 @@ npm run dev
 Bash:
 
 ```sh
-for migration in drizzle/000[0-5]_*.sql; do
+for migration in drizzle/000[0-6]_*.sql; do
   node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file "$migration" || exit 1
 done
 npm run dev
