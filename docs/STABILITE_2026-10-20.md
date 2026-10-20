@@ -7,63 +7,23 @@ Yerel ağdan gerçek mağaza sayfaları okundu. Altı kategori: direnç, kondans
 | Robotistan | 6/6 | Fiyat, KDV ve satış birimi doğrulandı. |
 | Robo90 | 6/6 | Fiyat, KDV ve satış birimi doğrulandı. |
 | Direnc.net | 6/6 | Fiyat, KDV ve satış birimi doğrulandı. |
-| Robiz | 5/6 | [
-  {
-    "received": false,
-    "code": "invalid_literal",
-    "expected": true,
-    "path": [
-      "product",
-      "vatIncluded"
-    ],
-    "message": "Invalid literal value, expected true"
-  },
-  {
-    "code": "invalid_literal",
-    "expected": true,
-    "path": [
-      "product",
-      "quantityVerified"
-    ],
-    "message": "Invalid literal value, expected true"
-  },
-  {
-    "code": "invalid_type",
-    "expected": "number",
-    "received": "undefined",
-    "path": [
-      "product",
-      "minimumOrderQuantity"
-    ],
-    "message": "Required"
-  },
-  {
-    "code": "invalid_type",
-    "expected": "number",
-    "received": "undefined",
-    "path": [
-      "product",
-      "orderStep"
-    ],
-    "message": "Required"
-  }
-] |
+| Robiz | 5/6 | Bir kablo sayfasında KDV ve satış birimi doğrulanamadı. |
 | Komponentci | 6/6 | Fiyat, KDV ve satış birimi doğrulandı. |
 | Robot Sepeti | 6/6 | Fiyat, KDV ve satış birimi doğrulandı. |
-| Motorobit | 5/6 | Error: Motorobit KDV dahil fiyatı ürün verisiyle doğrulanamadı. |
+| Motorobit | 5/6 | Bir güç/pil sayfasında KDV dahil fiyat ürün verisiyle uyuşmadı. |
 | Robolink Market | 6/6 | Fiyat, KDV ve satış birimi doğrulandı. |
-| Özdisan | 1/6 | Error: Özdisan ürün teklifi belirsiz. |
+| Özdisan | 1/6 | Beş sayfada ürün teklifi belirsiz; karşılaştırmaya alınmadı. |
 | Robitshop | 6/6 | Fiyat, KDV ve satış birimi doğrulandı. |
 | Robotzade | 6/6 | Fiyat, KDV ve satış birimi doğrulandı. |
 | Robotronik | 6/6 | Fiyat, KDV ve satış birimi doğrulandı. |
-| Pil Paketi | 0/0 | Mağaza kayıtlı; ürün adres dizini ve özel okuyucu entegrasyonu yok. |
-| Pil Sitesi | 0/0 | Mağaza kayıtlı; ürün adres dizini ve özel okuyucu entegrasyonu yok. |
-| E komponent | 0/0 | Mağaza kayıtlı; ürün adres dizini ve özel okuyucu entegrasyonu yok. |
-| Ulutaş Elektronik | 0/0 | Mağaza kayıtlı; ürün adres dizini ve özel okuyucu entegrasyonu yok. |
-| Hobi Devre | 0/0 | Mağaza kayıtlı; ürün adres dizini ve özel okuyucu entegrasyonu yok. |
-| F1 Depo | 0/0 | Mağaza kayıtlı; ürün adres dizini ve özel okuyucu entegrasyonu yok. |
+| Pil Paketi | 0/0 | Ürün adres dizini ve özel okuyucu entegrasyonu yok; bu turda ürün sayfası denenmedi. |
+| Pil Sitesi | 0/0 | Ürün adres dizini ve özel okuyucu entegrasyonu yok; bu turda ürün sayfası denenmedi. |
+| E komponent | 0/0 | Ürün adres dizini ve özel okuyucu entegrasyonu yok; bu turda ürün sayfası denenmedi. |
+| Ulutaş Elektronik | 0/0 | Ürün adres dizini ve özel okuyucu entegrasyonu yok; bu turda ürün sayfası denenmedi. |
+| Hobi Devre | 0/0 | Ürün adres dizini ve özel okuyucu entegrasyonu yok; bu turda ürün sayfası denenmedi. |
+| F1 Depo | 0/0 | Ürün adres dizini ve özel okuyucu entegrasyonu yok; bu turda ürün sayfası denenmedi. |
 | SAMM Market | 6/6 | Fiyat, KDV ve satış birimi doğrulandı. |
-| Robocombo | 5/6 | SyntaxError: Unexpected end of JSON input |
+| Robocombo | 5/6 | Bir direnç sayfasının ürün JSON verisi okunamadı. |
 
 SAMM satış adımı kontrolü ve Robocombo yeni Ikas altyapısı düzeltildikten sonra bu iki mağazanın 12 sayfası yeniden okundu. Tabloda son okumalar kullanılır. Eski Robocombo ürün adresleri 404 dönüyordu; güncel site haritasından 3.881 ürün adresi yenilendi.
 
