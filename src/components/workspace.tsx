@@ -288,6 +288,7 @@ export default function Workspace({
   activeDemo.current=data?.demo;
   const runVersion = useRef(0);
   const loadVersion=useRef(0);
+  const [startupMessage,setStartupMessage]=useState('Ürün kataloğu ve sepetlerin yükleniyor.');
   const patch = (key: string, value: string) =>
     setForm((f) => ({ ...f, [key]: value }));
   async function work(label: string, fn: () => Promise<void>) {
@@ -306,7 +307,8 @@ export default function Workspace({
   async function load(initial = false, focusedCartId?:string) {
     const version=++loadVersion.current;
     try {
-      const c = await configureAuth();
+      setStartupMessage('Ürün kataloğu ve sepetlerin yükleniyor.');
+      const c = await configureAuth(()=>setStartupMessage('Bağlantı yavaş yanıt veriyor. Açılış otomatik olarak yeniden deneniyor…'));
       setConfig(c);
       const cid=focusedCartId || (!initial ? latestCart.current?.id : undefined);
       const d = await api<Boot>(`bootstrap${cid ? `?cartId=${encodeURIComponent(cid)}` : ""}`);
@@ -901,7 +903,7 @@ export default function Workspace({
                 <>
                   <LoaderCircle className="animate-spin" />
                   <h2>Çalışma alanın hazırlanıyor</h2>
-                  <p>Ürün kataloğu ve sepetlerin yükleniyor.</p>
+                  <p role="status">{startupMessage}</p>
                 </>
               )}
             </div>

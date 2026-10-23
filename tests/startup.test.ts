@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {DatabaseSync} from "node:sqlite";
 import {readFileSync,readdirSync} from "node:fs";
-import {startupGate,requestError} from "../src/lib/startup";
+import {startupGate,requestError,startupReader} from "../src/lib/startup";
 import {seedEntries,seedProducts,seedReady,changedDemoOffers} from "../src/lib/seed-plan";
 import {demoOffers,storeCatalog} from "../src/lib/catalog";
 
@@ -14,6 +14,30 @@ test("cold initialization shares one attempt and a failed attempt can be retried
   await assert.rejects(a,/database unavailable/);
   await ready();await ready();
   assert.equal(calls,2);
+});
+
+test('startup configuration retries a cold timeout once, shares success and ignores the late response',async()=>{
+ let calls=0,retries=0,late!:(value:string)=>void;
+ const keepAlive=setTimeout(()=>{},200);
+ const read=startupReader(()=>++calls===1?new Promise<string>(resolve=>{late=resolve;}):Promise.resolve('ready'),10);
+ try{
+  const a=read(()=>retries++),b=read();assert.equal(a,b);
+  assert.equal(await a,'ready');assert.equal(retries,1);assert.equal(calls,2);
+  late('stale');await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(await read(),'ready');assert.equal(calls,2);
+ }finally{clearTimeout(keepAlive);}
+});
+
+test('startup retries only transient reads, releases terminal failure and never loops indefinitely',async()=>{
+ for(const status of [401,403,404,429]){
+  let calls=0;const read=startupReader(async()=>{calls++;throw Object.assign(new Error('denied'),{status});});
+  await assert.rejects(read(),/denied/);assert.equal(calls,1);
+ }
+ for(const error of [new TypeError('network'),Object.assign(new Error('unavailable'),{status:503})]){
+  let calls=0;const read=startupReader(async()=>{calls++;throw error;});
+  await assert.rejects(read());assert.equal(calls,2);
+  await assert.rejects(read());assert.equal(calls,4);
+ }
 });
 test("a stalled initialization expires and its late error cannot poison the retry",async()=>{
   let calls=0,fail!:(error:Error)=>void;

@@ -1,16 +1,20 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import {requestError} from "./startup";
+import {requestError,startupReader} from "./startup";
 let auth: SupabaseClient | null = null;
 export class ApiError extends Error{constructor(message:string,public status:number){super(message);this.name='ApiError';}}
-export async function configureAuth() {
-  const r = await fetch("/api/config",{signal:AbortSignal.timeout(10000)}).catch(error=>{throw requestError(error);});
-  if (!r.ok) throw new Error("Uygulama ayarları alınamadı.");
-  const c = (await r.json()) as {
+type PublicConfig={
     supabaseUrl: string;
     supabaseAnonKey: string;
     googleConfigured: boolean;
     demo: boolean;
   };
+const readConfig=startupReader(async signal=>{
+  const r=await fetch('/api/config',{signal,cache:'no-store'});
+  if(!r.ok)throw new ApiError('Uygulama ayarları alınamadı.',r.status);
+  return await r.json() as PublicConfig;
+});
+export async function configureAuth(onRetry?:()=>void) {
+  const c=await readConfig(onRetry);
   if (c.supabaseUrl && c.supabaseAnonKey && !auth)
     auth = createClient(c.supabaseUrl, c.supabaseAnonKey, {
       auth: { flowType: "pkce", detectSessionInUrl: true },
