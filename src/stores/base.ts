@@ -1,3 +1,4 @@
+import {merchantDisplayPreferences} from './request-preferences';
 import { load } from "cheerio";
 import type { ExtractedProduct, StoreAdapter, StoreConfig } from "./types";
 import { ascii } from "../../public/catalog/product-identity.js";
@@ -50,6 +51,7 @@ async function boundedFetch(url: URL, domain: string,signal=AbortSignal.timeout(
         "User-Agent":
           "EUB-PriceComparison/1.0 (+public product metadata; no authentication)",
         Accept: "text/html,application/ld+json,text/plain",
+        ...merchantDisplayPreferences(domain),
       },
       signal: AbortSignal.any([signal,AbortSignal.timeout(8000)]),
     });

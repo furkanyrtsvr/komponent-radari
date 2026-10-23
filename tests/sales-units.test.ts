@@ -1,3 +1,5 @@
+import{OzdisanAdapter}from'../src/stores/ozdisan';
+import{merchantDisplayPreferences}from'../src/stores/request-preferences';
 import test from 'node:test';import assert from 'node:assert/strict';import{readFileSync}from'node:fs';
 import{parsePilpaketiProduct}from'../src/stores/qukasoft';import{parseRobizProduct}from'../src/stores/robiz';import{parseOzdisanProduct}from'../src/stores/ozdisan';import{quoteOffer}from'../src/lib/pricing';import{demoOffers,storeCatalog}from'../src/lib/catalog';import{validateSnapshot,snapshotProduct}from'../src/lib/catalog-snapshot';import{variantConflict,canMergeCatalogProducts}from'../src/lib/catalog-identity';import{cartOffers}from'../src/lib/cart-offers';
 const fixture=(id:string)=>readFileSync(new URL(`./fixtures/merchants/units-2026-10-23/${id}.html`,import.meta.url),'utf8');
@@ -23,4 +25,10 @@ test('Ozdisan accepts current hashed table classes and still rejects VAT and row
  const offer={...demoOffers[0],price_gross:p.price!,package_quantity:1,minimum_order_quantity:1,order_step:1,price_tiers:JSON.stringify(p.priceTiers)};assert.equal(quoteOffer(offer,5).cost,1343256);
  assert.throws(()=>parseOzdisanProduct(html.replace('Toplam Fiyat','Toplam'),oz),/toplam fiyat tablosu/);
  assert.throws(()=>parseOzdisanProduct(html.replace('2,798.46','2,798.45'),oz),/KDV dahil toplam/);
+});
+
+test('Ozdisan anonymous reader explicitly requests Turkish TRY/VAT view instead of regional USD defaults',async()=>{
+ const original=globalThis.fetch;const headers:Record<string,string>[]=[];
+ globalThis.fetch=(async(input:any,init:any)=>{const url=String(input);const h=Object.fromEntries(new Headers(init?.headers).entries());headers.push(h);if(url.endsWith('/robots.txt'))return new Response('User-agent: *\nAllow: /');const setting=decodeURIComponent((h.cookie||'').replace(/^user-settings=/,''));if(setting!==JSON.stringify({languageCode:'tr',currencyCode:'TRY',countryCode:'TR'}))throw new Error('Wrong regional view requested');return new Response(fixture('ozdisan'));}) as typeof fetch;
+ try{const p=await new OzdisanAdapter({id:'ozdisan',domain:'www.ozdisan.com'}).getProduct(oz);assert.equal(p.price,279846);assert.ok(headers.every(h=>!h.authorization));assert.deepEqual(merchantDisplayPreferences('ozdisan.com.example.org'),{});assert.deepEqual(merchantDisplayPreferences('www.robiz.net'),{});}finally{globalThis.fetch=original;}
 });
