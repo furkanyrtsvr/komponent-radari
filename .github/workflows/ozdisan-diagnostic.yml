@@ -15,9 +15,12 @@ jobs:
           cache: npm
       - run: npm run install:ci
       - run: node --import tsx scripts/catalog/diagnose-ozdisan.ts
+      - run: node --import tsx scripts/catalog/audit-sales-units.ts
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: ozdisan-public-evidence
-          path: outputs/ozdisan-diagnostic/
+          path: |
+            outputs/ozdisan-diagnostic/
+            outputs/units-live/
           retention-days: 7

@@ -387,7 +387,7 @@ export function MerchantCatalog({
             <h3>{row.shortName || row.name}</h3>
             <p className="merchant-card-price">{(() => {
               const prices=row.sources.map(source=>previews[source.url]).filter(p=>p?.key===row.key&&p.stockStatus==='in_stock'&&previewObserved(p));
-              if(prices.length)return `${money(Math.min(...prices.map(p=>Math.round(p.price!/(p.packageQuantity||1)))))} / ${row.key.startsWith('cable:jumper:')?'set':'adet'}`;
+              if(prices.length)return [...new Set(prices.map(p=>p.unitType==='metre'?'metre':row.key.startsWith('cable:jumper:')?'set':'adet'))].map(unit=>`${money(Math.min(...prices.filter(p=>(p.unitType==='metre'?'metre':row.key.startsWith('cable:jumper:')?'set':'adet')===unit).map(p=>Math.round(p.price!/(p.packageQuantity||1)))))} / ${unit}`).join(' · ');
               const soldOut=row.sources.map(source=>previews[source.url]).filter(p=>p?.key===row.key&&p.stockStatus==='out_of_stock'&&previewObserved(p));
               if(soldOut.length)return `${money(Math.min(...soldOut.map(p=>Math.round(p.price!/(p.packageQuantity||1)))))} · Stokta yok`;
               return row.sources.every(source=>attemptedPreviews.current.has(source.url)&&previews[source.url]) ? 'Fiyat doğrulanamadı' : 'Fiyatlar kontrol ediliyor…';
@@ -466,7 +466,7 @@ export function MerchantCatalog({
                         {checkedPrice(source.url,selectedProduct.key) || (previews[source.url]
                           ? previews[source.url].key && previews[source.url].key !== selectedProduct.key ? "Ürün bilgisi eşleşmedi" : previews[source.url].stockStatus === "out_of_stock" ? "Stokta yok" : "Fiyat doğrulanamadı"
                           : "Mağaza kontrol ediliyor…")}
-                        {checkedPrice(source.url,selectedProduct.key) ? selectedProduct.key.startsWith("cable:jumper:") ? " / set · KDV dahil" : ` / ${previews[source.url]?.packageQuantity && previews[source.url].packageQuantity!>1 ? `${previews[source.url].packageQuantity} adetlik paket` : "adet"} · KDV dahil` : ""}
+                        {checkedPrice(source.url,selectedProduct.key) ? previews[source.url]?.unitType==='metre' ? " / metre · KDV dahil" : selectedProduct.key.startsWith("cable:jumper:") ? " / set · KDV dahil" : ` / ${previews[source.url]?.packageQuantity && previews[source.url].packageQuantity!>1 ? `${previews[source.url].packageQuantity} adetlik paket` : "adet"} · KDV dahil` : ""}
                         {previews[source.url]?.retained ? " · son doğrulanan fiyat" : ""}
                         {checkedPrice(source.url,selectedProduct.key) && <small>Son kontrol · {new Date(previews[source.url]?.checkedAt || offers.find(o=>o.product_url===source.url)?.last_checked_at || '').toLocaleString('tr-TR')}</small>}
                       </span>

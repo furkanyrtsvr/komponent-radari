@@ -1,3 +1,4 @@
+import {salesUnit} from "../sales-unit";
 import { id, now,money, type Product, type Offer, type Store } from "../domain";
 import { verifiedShippingRule } from "../shipping";
 import { list, listIn, pages, one, insert, update, HttpError } from "./db";
@@ -110,7 +111,7 @@ export async function persist(
     },
     { id: store.id },
   );
-  return offer;
+  return {...offer,unit_type:p.unitType};
 }
 async function checkSource(
   store: Store,
@@ -422,7 +423,7 @@ export async function searchLive(query: string) {
               "Bu kayıt yalnızca bu mağaza ürününü temsil eder. Mağazalar arası eşleştirme yapılmamıştır.",
             image: p.image,
             specifications: p.specifications,
-            unit_type: "adet",
+            unit_type: salesUnit(p),
             package_quantity: p.packageQuantity || 1,
             created_at: now(),
           };

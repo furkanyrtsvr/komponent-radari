@@ -1,3 +1,4 @@
+import {salePack} from '../sale-evidence';
 import { load } from "cheerio";
 import { JsonLdAdapter, parsePrice, parseProduct } from "../base";
 
@@ -12,16 +13,17 @@ export function parseRobizProduct(html: string, url: string) {
     if (
       displayed !== p.price ||
       !Number.isSafeInteger(minimum) || minimum < 1 ||
-      (!p.vatIncluded && !explicitGross) || p.currency !== "TRY" ||
-      (p.packageQuantity !== null && p.packageQuantity !== 1 && !/\bkablo\s+seti\b/i.test(p.name))
+      (!p.vatIncluded && !explicitGross) || p.currency !== "TRY"
     ) return p;
+    if($('[name^="option["]').length)return p;
+    const pack=salePack(p.name);
     const priceTiers = $(".product-discount").map((_, element) => {
       const text=$(element).text(), range=text.match(/^(\d+)\s+adet\s+ve\s+[üu]zeri\s+([\d.,]+)\s*TL/i);
-      return range ? {minimum:Number(range[1]),maximum:null,price:parsePrice(range[2])!} : null;
+      return range ? {minimum:Number(range[1])*pack,maximum:null,price:parsePrice(range[2])!} : null;
     }).get().filter(tier=>tier && tier.price>0 && tier.price<=displayed!);
     return { ...p, vatIncluded:true, priceNet:net ?? p.price, vatRate:explicitGross ? Math.round((displayed!/net!-1)*10000)/10000 : p.vatRate,
-      packageQuantity: 1, minimumOrderQuantity: minimum,priceTiers,
-      orderStep: 1, quantityVerified: true,
+      packageQuantity: pack, minimumOrderQuantity: minimum*pack,priceTiers,
+      orderStep: pack, quantityVerified: true,
       warnings: ["Görünen KDV dahil fiyat ve minimum sipariş miktarı doğrulandı. Kargo ödeme ekranında doğrulanmalıdır."],
     };
 }

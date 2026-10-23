@@ -8,8 +8,8 @@ const dir='outputs/ozdisan-diagnostic';mkdirSync(dir,{recursive:true});
 for(const [i,url] of urls.entries()){
  if(i)await new Promise(r=>setTimeout(r,3100));
  try{const page=await new Probe({id:'ozdisan',domain:'www.ozdisan.com'}).page(url),$=load(page.html);
- let result;try{const p=parseOzdisanProduct(page.html,page.url);result={price:p.price,minimum:p.minimumOrderQuantity,step:p.orderStep};}catch(e){result={error:String(e)};}
- const cards=$('[class*="ProductDetailTapeCard"][class*="tape-card-container"]');
+ let result;try{const p=parseOzdisanProduct(page.html,page.url);result={price:p.price,minimum:p.minimumOrderQuantity,step:p.orderStep};}catch(e){result={error:String(e)};process.exitCode=1;}
+ const cards=$('[class*="tape-card-container"]');
  const summary={url:page.url,lang:$('html').attr('lang'),title:$('h1').text(),cards:cards.length,cardText:cards.text().slice(0,8000),result};
  // Only public product evidence; no HTTP headers, cookies or account data.
  const scripts=$('script[type="application/ld+json"]').toArray().map(e=>$.html(e)).join('\n');

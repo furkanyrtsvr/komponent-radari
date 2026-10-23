@@ -1163,7 +1163,7 @@ export default function Workspace({
                                       <Minus size={12} />
                                     </button>
                                     <input
-                                      aria-label={`${p.name} adet`}
+                                      aria-label={`${p.name} ${p.unit_type}`}
                                       type="number"
                                       min="1"
                                       max="100000"
@@ -1204,7 +1204,7 @@ export default function Workspace({
                                   <small>
                                     {price===null || availabilityFor(p.id,item.quantity).label==='Son alınan fiyat' ? availabilityFor(p.id,item.quantity).note : p.package_quantity > 1
                                       ? "Paket adedi dahil"
-                                      : p.unit_type === "set" ? `${item.quantity} set · KDV dahil` : "KDV dahil"}
+                                      : p.unit_type === "metre" ? `${item.quantity} metre · KDV dahil` : p.unit_type === "set" ? `${item.quantity} set · KDV dahil` : "KDV dahil"}
                                   </small>
                                 </TableCell>
                                 <TableCell>
@@ -2278,19 +2278,19 @@ export default function Workspace({
                                   {o.title}
                                 </small>
                                 <small>
-                                  {o.package_quantity} adet / fiyat
+                                  {o.package_quantity} {o.unit_type || "adet"} / fiyat
                                   <small>
                                     Min.{" "}
                                     {o.minimum_order_quantity ||
                                       o.package_quantity}{" "}
                                     · {o.order_step || o.package_quantity}{" "}
-                                    adetlik artış
+                                    {o.unit_type || "adet"} artış
                                   </small>
                                 </small>
                               </TableCell>
                               <TableCell>
                                 <strong>{money(o.price_gross)}</strong>
-                                <small>{money(o.unit_price)} / adet</small>
+                                <small>{money(o.unit_price)} / {o.unit_type || "adet"}</small>
                               </TableCell>
                               <TableCell>
                                 <span

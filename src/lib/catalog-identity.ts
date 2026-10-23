@@ -1,9 +1,11 @@
+import {unitConflict,type UnitEvidence} from './sales-unit';
 import { productIdentity, ascii,matchingName,regulatorModuleDetails,potentiometerDetails,evidenceAttributeConflict } from "../../public/catalog/product-identity.js";
 import {productRoleConflict,productRole} from './product-role';
 export { productIdentity as catalogIdentity, jumperDetails, candidateKey } from "../../public/catalog/product-identity.js";
 /** Broader discovery may list these pages, but a known different part cannot
  * silently become the cheapest quote for the requested electrical variant. */
-export function variantConflict(a:{name:string;specifications?:string},b:{name:string;specifications?:string}){
+export function variantConflict(a:{name:string;specifications?:string}&UnitEvidence,b:{name:string;specifications?:string}&UnitEvidence){
+ if(unitConflict(a,b))return 'Satış birimi farklı (metre / adet)';
  const roleConflict=productRoleConflict(a,b);
  if(roleConflict)return roleConflict;
  const declared=evidenceAttributeConflict(a,b);if(declared)return declared;
@@ -67,7 +69,7 @@ export function relatedRegulatorModule(a:{name:string},b:{name:string}){
   const expected=regulatorModuleDetails(a),actual=regulatorModuleDetails(b);
   return Boolean(expected && actual && expected.mode!=="unknown" && expected.mode===actual.mode && expected.quantity===actual.quantity && expected.features.filter(f=>f!=="mini" && f!=="standard").join(',')===actual.features.filter(f=>f!=="mini" && f!=="standard").join(','));
 }
-export function canMergeCatalogProducts(a: {name:string;manufacturer?:string}, b: {name:string;manufacturer?:string}) {
+export function canMergeCatalogProducts(a: {name:string;manufacturer?:string}&UnitEvidence, b: {name:string;manufacturer?:string}&UnitEvidence) {
   const key=productIdentity(a);
   if (key!==productIdentity(b)) return false;
   if(variantConflict(a,b))return false;
@@ -75,7 +77,7 @@ export function canMergeCatalogProducts(a: {name:string;manufacturer?:string}, b
 }
 /** A merchant may provide additional ratings for a generic IC requirement.
  * Voltage and footprint still need explicit, identical evidence on both sides. */
-export function matchesCatalogRequirement(a:{name:string;manufacturer?:string;specifications?:string},b:{name:string;manufacturer?:string;specifications?:string}) {
+export function matchesCatalogRequirement(a:{name:string;manufacturer?:string;specifications?:string}&UnitEvidence,b:{name:string;manufacturer?:string;specifications?:string}&UnitEvidence) {
   if(variantConflict(a,b))return false;
   if(canMergeCatalogProducts(a,b))return true;
   const potA=potentiometerDetails(a),potB=potentiometerDetails(b);

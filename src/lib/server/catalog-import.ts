@@ -1,3 +1,4 @@
+import {salesUnit,unitConflict} from '../sales-unit';
 import { id, now, type Product, type Offer, type Store } from "../domain";
 import { canMergeCatalogProducts, jumperDetails,matchesCatalogRequirement,variantConflict } from "../catalog-identity";
 import {nameMatchScore,ascii,productEvidence,evidenceAttributeConflict} from '../../../public/catalog/product-identity.js';
@@ -46,14 +47,14 @@ export async function saveCatalogProduct(store:Store,p:ExtractedProduct,requeste
   const targetProduct = targetProductId ? await one<Product>("canonical_products", { id: targetProductId }) : undefined;
   const provisional=Boolean(previousProduct&&!previousOffer&&previous&&JSON.parse(previous.raw_data).quantityVerified!==true&&nameMatchScore(previousProduct,p)>=0.65&&!variantConflict(previousProduct,p));
   const descriptionUpgrade=Boolean(previousProduct&&ascii(previousProduct.name)===ascii(p.name)&&previousProduct.package_quantity===(p.packageQuantity||1)&&productEvidence(p).descriptionConfirmed&&!productEvidence(previousProduct).descriptionConfirmed&&!evidenceAttributeConflict(previousProduct,p));
-  if (previousProduct && !matchesCatalogRequirement(previousProduct,p) && !provisional&&!descriptionUpgrade)
+  if (previousProduct && (!matchesCatalogRequirement(previousProduct,p)&&!(salesUnit(p)==='metre'&&previousProduct.unit_type==='adet'&&ascii(previousProduct.name)===ascii(p.name))) && !provisional&&!descriptionUpgrade)
     throw new HttpError(400, "Mağaza bağlantısındaki ürün değişmiş; eski ürüne bağlanamaz.");
   if((provisional||descriptionUpgrade)&&previousProduct){
-    const facts={name:p.name,manufacturer:p.manufacturer,mpn:p.mpn,model:p.model,image:p.image,specifications:p.specifications,package_quantity:p.packageQuantity||1,unit_type:jumperDetails(p.name)?'set':'adet'};
+    const facts={name:p.name,manufacturer:p.manufacturer,mpn:p.mpn,model:p.model,image:p.image,specifications:p.specifications,package_quantity:p.packageQuantity||1,unit_type:jumperDetails(p.name)?'set':salesUnit(p)};
     await update('canonical_products',facts,{id:previousProduct.id});Object.assign(previousProduct,facts);
   }
   if (targetProductId && !targetProduct) throw new HttpError(404, "Birleştirilecek ürün bulunamadı.");
-  if (targetProduct && !canMergeCatalogProducts(targetProduct,p))
+  if (targetProduct && (!canMergeCatalogProducts(targetProduct,p)||unitConflict(targetProduct,p)))
     throw new HttpError(400, "Farklı model veya ürün tipi aynı karta birleştirilemez.");
   if (targetProduct && previousProduct && previousProduct.id !== targetProduct.id)
     await mergeCanonical(previousProduct.id, targetProduct.id);
@@ -69,7 +70,7 @@ export async function saveCatalogProduct(store:Store,p:ExtractedProduct,requeste
     manufacturer: p.manufacturer, mpn: p.mpn, model: p.model,
     description: p.price===null ? "Katalog bağlantısından ürün ihtiyacı eklendi; fiyat ve stok henüz doğrulanmadı." : "Mağaza ürün sayfasından alındı; fiyat ve stok doğrulama durumuna göre kullanılır.",
     image: p.image, specifications: p.specifications,
-    unit_type: jumperDetails(p.name) ? "set" : "adet", package_quantity: p.packageQuantity || 1, created_at: now(),
+    unit_type: jumperDetails(p.name) ? "set" : salesUnit(p), package_quantity: p.packageQuantity || 1, created_at: now(),
   } satisfies Product);
   if (!existing && matching.length !== 1) await insert("canonical_products", product);
   // Refresh the original merchant's name evidence as well as its price.
@@ -79,6 +80,9 @@ export async function saveCatalogProduct(store:Store,p:ExtractedProduct,requeste
   if (jumperDetails(p.name)) {
     product.unit_type = "set"; product.package_quantity = 1;
     await update("canonical_products", {unit_type:"set",package_quantity:1}, {id:product.id});
+  }
+  if(salesUnit(product)!==salesUnit(p)&&salesUnit(p)==='metre'){
+    product.unit_type='metre';await update('canonical_products',{unit_type:'metre'}, {id:product.id});
   }
   const verified = p.price !== null && p.price > 0 && p.currency === "TRY" && p.vatIncluded === true && p.quantityVerified === true;
   let offer: Offer | undefined;

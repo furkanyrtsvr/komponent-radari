@@ -17,7 +17,7 @@ export function parseOzdisanProduct(html:string,url:string):ExtractedProduct {
  if(!offers.length&&/Fiyat ve Stok Talep Et/i.test($('body').text()))throw new Error('Özdisan bu ürün için fiyat ve stok talebi istiyor; herkese açık fiyat yayımlamıyor.');
  if(offers.length!==1)throw new Error('Özdisan ürün teklifi belirsiz.');
  const offer=offers[0];
- const firstCard=$('[class*="ProductDetailTapeCard"][class*="tape-card-container"]').first();
+ const firstCard=$('[class*="tape-card-container"]').first();
  if(!firstCard.length||!/Toplam Fiyat[\s\S]*KDV Dahil/.test(firstCard.text()))throw new Error('Özdisan KDV dahil toplam fiyat tablosu doğrulanamadı.');
  const rows=firstCard.find('.price-row').map((_,e)=>{
   const row=$(e),minimum=quantity(row.find('.first-column > span').first().text());

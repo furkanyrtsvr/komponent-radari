@@ -33,6 +33,7 @@ Uygulama yerelde çalıştırılarak alınan dört ekran görüntüsü.
 
 
 
+
 ## Özellikler
 
 - Ürün adı veya desteklenen mağazanın HTTPS ürün bağlantısıyla arama, karşılaştırma ve sepete ekleme.
@@ -135,6 +136,8 @@ Paket kaynak kodunu, bağımlılık kilidini, mağaza adres dizinini, testleri v
 20 Ekim 2026: 184 otomatik test; altı kategoride 84 sayfalık canlı denetim. [Mağaza kapsamı ve yayın sonrası sonuçlar](docs/STABILITE_2026-10-20.md).
 
 20 Ekim 2026 ek entegrasyonları: Altı yeni mağaza okuyucusu ve 101.033 yeni ürün adresi. [Entegrasyon ve hata düzeltme raporu](docs/ENTEGRASYON_2026-10-20.md).
+
+23 Ekim 2026: [Metre, paket ve Özdisan doğrulama düzeltmeleri](docs/BIRIMLER_2026-10-23.md).
 
 ## Otomatik sürümler
 

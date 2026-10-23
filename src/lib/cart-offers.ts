@@ -6,7 +6,7 @@ export type OfferSelection={id:string;cart_id:string;canonical_product_id:string
 export function cartOffers(offers:Offer[],products:Product[],targets:Product[],selections:OfferSelection[]=[]){
  const byKey=new Map<string,Offer[]>();
  const byProduct=new Map<string,Offer[]>();
- const merchantFacts=new Map(offers.map(offer=>[offer,{name:offer.title,manufacturer:offer.manufacturer,specifications:offer.specifications}]));
+ const merchantFacts=new Map(offers.map(offer=>[offer,{name:offer.title,manufacturer:offer.manufacturer,specifications:offer.specifications,unit_type:offer.unit_type}]));
  const facts=(offer:Offer)=>merchantFacts.get(offer)!;
  for(const offer of offers){
   const own=byProduct.get(offer.canonical_product_id)||[];own.push(offer);byProduct.set(offer.canonical_product_id,own);

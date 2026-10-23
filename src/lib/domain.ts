@@ -33,6 +33,8 @@ export type Store = {
   shipping_default?: boolean;
 };
 export type Offer = {
+  /** Base unit from the scoped merchant record; not a database column. */
+  unit_type?: import('./sales-unit').SalesUnit;
   /** Scoped merchant metadata, loaded for matching; not a store_offers column. */
   specifications?:string;
   snapshot_max_age_ms?:number;

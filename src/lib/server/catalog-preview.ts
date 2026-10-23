@@ -19,6 +19,7 @@ export type CatalogPreview = {
   message: string;
   retained?: boolean;
   packageQuantity?:number;
+  unitType?:import("../sales-unit").SalesUnit;
   maxAgeMs?:number;
   sources?:{storeId:string;url:string;name:string}[];
 };
@@ -61,7 +62,7 @@ export async function previewCatalogProducts(urls: string[], force = false) {
         return {url, name:product?.name || "", key:product ? catalogIdentity(product) : "",
           image:product?.image?.startsWith("https://") ? product.image : null,
           price:verified ? product!.price : null, stockStatus:product?.stockStatus || "unknown",
-          checkedAt:product?.checkedAt || new Date().toISOString(), packageQuantity:product?.packageQuantity || 1,
+          checkedAt:product?.checkedAt || new Date().toISOString(), packageQuantity:product?.packageQuantity || 1,unitType:product?.unitType,
           maxAgeMs:product?.readMethod==='snapshot'?(phase==='B'?SNAPSHOT_TTL_MS:LIVE_TTL_MS):5*60*1000,
           sources:product ? catalogueSources(product) : [],
           retained:Boolean(product?.readWarning),

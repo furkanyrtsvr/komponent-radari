@@ -1,6 +1,7 @@
 import type { Store } from "../lib/domain";
 import type { PriceTier } from "../lib/pricing";
 export type ExtractedProduct = {
+  unitType?:import('../lib/sales-unit').SalesUnit;
   checkedAt?:string;
   readMethod?:'snapshot';
   readWarning?:string;
