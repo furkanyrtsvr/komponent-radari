@@ -349,7 +349,9 @@ export function catalogSearchText(name) {
 }
 export function catalogQuery(query) {
  const normalized=searchableText(query);
- const expected=normalized.split(' ').filter(Boolean).map(term=>({term,technical:/\d/.test(term)}));
+ // Search discovers model families; canonical identity still keeps full model
+ // suffixes separate. Electrical values and dimensions remain exact tokens.
+ const expected=normalized.split(' ').filter(Boolean).map(term=>({term,technical:/\d/.test(term)&&!(/^[a-z]{2,}\d[a-z0-9]*$/.test(term))}));
  const connector=normalized.match(/\b(?:erkek erkek|disi disi|erkek disi)\b/)?.[0];
  const requiredModels=modelCodes(technicalText(query));
  return name=>{

@@ -100,5 +100,7 @@
 .feedback-evidence>p{margin:8px 0;}.feedback-evidence-row{display:flex;align-items:flex-start;gap:10px;padding:12px 0;border-bottom:1px solid var(--border);cursor:pointer;}
 .feedback-evidence-row input{width:16px;height:16px;accent-color:var(--primary);flex-shrink:0;margin-top:3px;}
 .feedback-evidence-row>span{display:grid;gap:4px;min-width:0;overflow-wrap:anywhere;}.feedback-evidence-row small{font-size:11px;color:var(--muted-foreground);}
+.catalog-report-button{right:44px;top:16px;z-index:1;}.merchant-product-dialog .merchant-dialog-layout{padding-top:26px;}
+.feedback-admin-overview{padding:24px;margin-bottom:24px;}.feedback-admin-overview p{margin:12px 0;color:var(--muted-foreground);}.feedback-export{max-width:100%;}.feedback-export .error-box{font-size:12px;margin-top:8px;}
 @media(max-width:800px){.feedback-layout{grid-template-columns:1fr;}.feedback-inbox{border-right:0;border-bottom:1px solid var(--border);}.feedback-report-list{max-height:240px;}.feedback-hub-top{padding:22px;align-items:flex-start;flex-direction:column;}.feedback-messages{min-height:220px;}.feedback-conversation>header,.feedback-reply{padding:18px;}}
 @media(max-width:440px){.comparison-dialog-title{padding-right:47px;}.report-comparison-button{right:7px;padding:5px;}.report-comparison-button span{display:none;}}

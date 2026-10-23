@@ -46,6 +46,7 @@ Uygulama yerelde çalıştırılarak alınan dört ekran görüntüsü.
 - Üyelik, favoriler, fiyat geçmişi, fiyat/stok takibi ve işlem kayıtları.
 - A canlı fiyat akışı ve B tarihli fiyat arşivi arasında geçiş; kategori bazında Excel dışa aktarımı.
 - Karşılaştırma sonuçlarını seçerek hata bildirme; özel geri bildirim konuşmaları, yönetici yanıtları ve inceleme durumları. [Geri bildirim rehberi](docs/GERI_BILDIRIM.md).
+- Yöneticiye tüm bildirim ve konuşmaları tek Markdown dosyasında indirme; ürün keşfet bağlamıyla hata bildirme. [Model araması ve kategori sayfalaması](docs/KATALOG_ARAMA_2026-10-23.md).
 
 ## Mağazalar
 

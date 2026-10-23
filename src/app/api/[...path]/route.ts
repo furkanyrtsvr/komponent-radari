@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import {ensureFeedback,feedbackFor} from '@/lib/server/feedback';
 import {FeedbackError} from '@/lib/feedback-service';
+import {feedbackExport} from '@/lib/server/feedback-export';
 import { dataSource, storesForSource } from "@/lib/server/mode";
 import { syncLive, searchLive } from "@/lib/server/live";
 import { importCatalogBundle } from "@/lib/server/catalog-import";
@@ -93,6 +94,9 @@ async function handle(request: Request, context: Context) {
       body = JSON.parse(raw || "{}");
     }
     const source = await dataSource();
+    if(route==='admin/feedback/export'&&method==='GET'){
+      requireAdmin(u);await rateLimit('feedback-export:'+u.id,3);return feedbackExport(u);
+    }
     if(path[0]==='feedback'){
       await ensureFeedback();const service=feedbackFor(u);
       if(path.length===1&&method==='GET')return Response.json(await service.list(new URL(request.url).searchParams.get('scope')==='all'));

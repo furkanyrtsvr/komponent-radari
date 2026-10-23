@@ -18,6 +18,12 @@ export async function configureAuth() {
   return c;
 }
 export const authClient = () => auth;
+export async function downloadApiFile(path:string){
+  const token=auth?(await auth.auth.getSession()).data.session?.access_token:undefined;
+  const response=await fetch(`/api/${path}`,{signal:AbortSignal.timeout(120000),cache:'no-store',headers:token?{Authorization:`Bearer ${token}`}:{}}).catch(error=>{throw requestError(error);});
+  if(!response.ok){const data=await response.json().catch(()=>({error:'Dosya indirilemedi.'})) as {error?:string};throw new ApiError(data.error||'Dosya indirilemedi.',response.status);}
+  return response.blob();
+}
 export async function api<T>(
   path: string,
   method = "GET",

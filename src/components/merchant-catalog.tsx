@@ -12,6 +12,7 @@ import {
   ShoppingCart,
   ToggleLeft,
   Zap,
+  CircleAlert,
 } from "lucide-react";
 import {
   Dialog,
@@ -27,6 +28,8 @@ import { money } from "@/lib/domain";
 import { hasObservedPrice, isFresh } from "@/lib/pricing";
 import { catalogIdentity } from "@/lib/catalog-identity";
 import type { CatalogPreview } from "@/lib/server/catalog-preview";
+import {catalogFeedback} from '@/lib/feedback-catalog';
+import type {FeedbackContext} from '@/lib/feedback';
 
 type Source = { storeId: string; url: string; sourceCategory: string; name?:string };
 const previewObserved=(p:CatalogPreview)=>Boolean(p.price && Number.isFinite(Date.parse(p.checkedAt)) && Date.parse(p.checkedAt)<=Date.now() && Date.now()-Date.parse(p.checkedAt)<(p.maxAgeMs||20*60*1000));
@@ -106,12 +109,14 @@ export function MerchantCatalog({
   offers,
   onAdd,
   busy,
+  onReport,
 }: {
   query: string;
   stores: Store[];
   offers: Offer[];
   onAdd: (urls: string[], category: string) => Promise<void>;
   busy: boolean;
+  onReport:(context:FeedbackContext)=>void;
 }) {
   const [manifest, setManifest] = useState<Manifest | null>(null);
   const [group, setGroup] = useState("all");
@@ -156,7 +161,7 @@ export function MerchantCatalog({
 
   useEffect(() => {
     if (!manifest) return;
-    const nextWorker = new Worker("/catalog/search-worker.js", {type:"module"});
+    const nextWorker = new Worker("/catalog/search-worker.js?v=20261023-discovery2", {type:"module"});
     worker.current = nextWorker;
     nextWorker.onmessage = (event: MessageEvent<SearchResponse>) => {
       if (event.data.requestId !== request.current) return;
@@ -438,6 +443,7 @@ export function MerchantCatalog({
         <DialogContent className="merchant-product-dialog">
           {selectedProduct && (
             <>
+              <button type="button" className="report-comparison-button catalog-report-button" aria-label="Bu ürün kaydında hata bildir" onClick={()=>onReport(catalogFeedback(selectedProduct,previews,stores,{query,group,store,page}))}><CircleAlert size={19}/><span>Hata bildir</span></button>
               <div className="merchant-dialog-layout">
                 <ProductVisual
                   group={selectedProduct.group}

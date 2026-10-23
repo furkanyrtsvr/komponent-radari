@@ -1,7 +1,12 @@
-import { productIdentity, searchableText, ascii, matchBucket, catalogGroup, catalogQuery } from './product-identity.js';
+import { productIdentity, searchableText, ascii, matchBucket, catalogGroup, catalogQuery } from './product-identity.js?v=20261023-discovery2';
 let manifest;
 const loaded = new Map();
 const matches = new Map();
+function browseOrder(perStore){
+ const lists=[...perStore.values()].map(list=>[...list.values()]),result=[],seen=new Set();
+ for(let i=0;i<Math.max(0,...lists.map(list=>list.length));i++)for(const list of lists){const row=list[i];if(row&&!seen.has(row.key)){seen.add(row.key);result.push(row);}}
+ return result;
+}
 async function loadChunk(key) {
  if (loaded.has(key)) return loaded.get(key);
  const response = await fetch(`/catalog/${key}`);
@@ -43,16 +48,18 @@ async function search(message) {
   const hint = /xr2206|sinyal.jenerator/.test(ascii(query)) ? 'Ölçüm ve Test' : /esp32|arduino|stm32/.test(ascii(query)) ? 'Geliştirme Kartları' : null;
   if (hint) chunks.sort((a,b)=>Number(b.c.group===hint)-Number(a.c.group===hint));
   const limit = (page+1)*40;
-  const groups = new Map(), browseCounts = new Map(), seen = new Set();
-  const quota = Math.max(4,Math.ceil((limit+40)/Math.max(1,selected.length)));
+  const groups = new Map(), browseRows = new Map(selected.map(s=>[s.id,new Map()]));
+  const quota = limit+40;
   let processed=0,errors=0;
   async function publish(done) {
-   const results = await resolveSources([...groups.values()].slice(page*40,limit),store);
+   const ordered=terms.length?[...groups.values()]:browseOrder(browseRows);
+   const results = await resolveSources(ordered.slice(page*40,limit),store);
    if (requestId!==self.currentRequest) return;
-   self.postMessage({requestId,done,results,count:terms.length&&done ? groups.size : null,progress:processed,chunks:chunks.length,errors,hasMore:groups.size>limit||processed<chunks.length});
+   self.postMessage({requestId,done,results,count:terms.length&&done ? groups.size : null,progress:processed,chunks:chunks.length,errors,hasMore:ordered.length>limit||processed<chunks.length});
   }
   for (const {s,c} of chunks) {
    if (requestId!==self.currentRequest) return;
+   if(!terms.length&&browseRows.get(s.id).size>=quota){processed++;continue;}
    try {
     const rows = await loadChunk(c.key);
     for (const [path,name,sourceCategory] of rows) {
@@ -62,17 +69,16 @@ async function search(message) {
      const key = productIdentity({name,category:sourceCategory});
      let record = groups.get(key);
      if (!record) {
-      if (!terms.length && (browseCounts.get(s.id)||0)>=quota) continue;
+      if (!terms.length && browseRows.get(s.id).size>=quota) continue;
       record = {key,name,shortName:shortName(name,key),group:key.startsWith('model:xr2206:generator')?'Ölçüm ve Test':actualGroup,sources:[]};
       groups.set(key,record);
-      browseCounts.set(s.id,(browseCounts.get(s.id)||0)+1);
      }
+     if(!terms.length&&!browseRows.get(s.id).has(key)&&browseRows.get(s.id).size<quota)browseRows.get(s.id).set(key,record);
      if (!record.sources.some(source=>source.url===s.base+path)) record.sources.push({storeId:s.id,url:s.base+path,sourceCategory,name});
     }
    } catch {errors++;}
-   processed++; seen.add(s.id);
+   processed++;
    if (processed%8===0) await publish(false);
-   if (!terms.length && groups.size>=limit+40 && seen.size>=selected.length) break;
   }
   await publish(true);
  } catch(error) {

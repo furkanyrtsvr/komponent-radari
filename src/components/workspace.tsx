@@ -101,7 +101,7 @@ import { quoteOffer, isFresh,hasObservedPrice } from "@/lib/pricing";
 import {distinctScenarios} from '@/lib/scenario-display';
 import {offerAvailability} from '@/lib/offer-availability';
 import {PricePhase} from './price-phase';
-import {FeedbackPanel,FeedbackComposer} from './feedback-panel';
+import {FeedbackPanel,FeedbackComposer,FeedbackExportButton} from './feedback-panel';
 import {emptyFeedbackContext,type FeedbackContext} from '@/lib/feedback';
 import {comparisonFeedback} from '@/lib/feedback-comparison';
 import { csvCell } from "@/lib/bom";
@@ -1709,7 +1709,7 @@ export default function Workspace({
               )}
               {(view === "catalog" || view === "favorites") && (
                 <section className="catalog-section">
-                  {view === "catalog" && !data.demo && <MerchantCatalog query={query} stores={data.stores} offers={data.offers} busy={!!busy} onAdd={addIndexedProduct} />}
+                  {view === "catalog" && !data.demo && <MerchantCatalog query={query} stores={data.stores} offers={data.offers} busy={!!busy} onAdd={addIndexedProduct} onReport={setFeedbackContext} />}
                   {(view === "favorites" || data.demo) && <>
                   <h2 className="catalog-verified-title">{view === "favorites" ? "Favorilerim" : "Demo ürünleri"}</h2>
                   <div className="filter-row">
@@ -1946,6 +1946,7 @@ export default function Workspace({
               )}
               {view === "stores" && cart && <ShippingLogsPanel stores={data.stores} cart={cart} onChange={next=>{setCart(next);changed();void load(false,next.id);}}/>}
               {view === "feedback" && <FeedbackPanel key={feedbackSelected||'feedback'} admin={data.user.admin} initialId={feedbackSelected} onNew={()=>setFeedbackContext(emptyFeedbackContext())}/>}
+              {view === "admin" && data.user.admin && <section className="surface feedback-admin-overview"><h2>Geri bildirim yönetimi</h2><p>Bütün bildirimleri ve konuşmaları güncel bir Markdown dosyasında indir.</p><div className="panel-actions"><FeedbackExportButton/><Button variant="outline" onClick={()=>{setFeedbackSelected(null);setView("feedback");}}>Tüm bildirimleri görüntüle</Button></div></section>}
               {view === "admin" && <StorePanel stores={data.stores} admin={data.user.admin} onChange={()=>void load()}/>}
               {view === "admin" && data.user.admin && (
                 <AdminTools
@@ -1972,8 +1973,8 @@ export default function Workspace({
       >
         <DialogContent className="app-dialog">
           <DialogHeader>
-            <DialogTitle className={modal==='url'?'comparison-dialog-title':undefined}>
-              {modal==='url'&&<button type="button" className="report-comparison-button" title="Bu karşılaştırmada hata bildir" aria-label="Bu karşılaştırmada hata bildir" onClick={()=>setFeedbackContext(comparisonFeedback(urlResult,form.url))}><CircleAlert size={20}/><span>Hata bildir</span></button>}
+            <DialogTitle className={modal==='url'&&urlResult?'comparison-dialog-title':undefined}>
+              {modal==='url'&&urlResult&&<button type="button" className="report-comparison-button" title="Bu karşılaştırmada hata bildir" aria-label="Bu karşılaştırmada hata bildir" onClick={()=>setFeedbackContext(comparisonFeedback(urlResult,form.url))}><CircleAlert size={20}/><span>Hata bildir</span></button>}
               {modal === "new"
                 ? "Yeni proje sepeti"
                 : modal === "merge"

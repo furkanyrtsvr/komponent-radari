@@ -13,7 +13,8 @@ export function feedbackUrl(raw:string){
 const safeUrl=z.string().max(2000).refine(value=>value===''||feedbackUrl(value)===value,'Desteklenen mağazanın herkese açık HTTPS bağlantısını kullanın.');
 const text=(length:number)=>z.string().trim().min(1).max(length);
 export const feedbackContextSchema=z.object({
-  source:z.enum(['comparison','general']),referenceUrl:safeUrl,
+  source:z.enum(['comparison','general','catalog']),referenceUrl:safeUrl,
+  catalog:z.object({query:z.string().max(300),group:z.string().max(120),store:z.string().max(100),page:z.number().int().nonnegative().max(100000),productKey:z.string().max(500)}).optional(),
   productName:z.string().max(240),quantity:z.number().int().min(1).max(100000),
   capturedAt:z.string().datetime(),
   offers:z.array(z.object({offerId:z.string().max(200),store:text(100),title:text(300),url:safeUrl,
