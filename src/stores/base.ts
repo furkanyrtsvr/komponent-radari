@@ -24,6 +24,9 @@ export class StoreReadError extends Error {
 export function isRetryableStoreError(error:unknown) {
   return error instanceof StoreReadError ? error.retryable : error instanceof Error && (/^(TimeoutError|AbortError)$/.test(error.name) || /fetch failed|network|timed? ?out|timeout|operation was aborted/i.test(error.message));
 }
+/** Access failure may retain a dated observation; contradictory product or
+ * tax evidence must never resurrect an earlier price as a successful read. */
+export function canRetainObservedProduct(error:unknown){return error instanceof StoreReadError||isRetryableStoreError(error);}
 export function safeStoreUrl(raw: string, domain: string) {
   const url = new URL(raw);
   const hosts = new Set([
@@ -280,7 +283,7 @@ export class JsonLdAdapter implements StoreAdapter {
     } catch(error) {
       const detail=error instanceof Error ? error.message : 'Bağlantı hatası';
       console.warn('Merchant robots read failed',{host:url.hostname,detail});
-      throw new StoreReadError(`Mağazaya şu anda ulaşılamıyor; otomatik erişim kuralları doğrulanamadı. ${detail}`);
+      throw new StoreReadError(`Mağazaya şu anda ulaşılamıyor; otomatik erişim kuralları doğrulanamadı. ${detail}`,isRetryableStoreError(error));
     }
     if (!robotsAllowed(robots, url.pathname + url.search))
       throw new Error(

@@ -1,5 +1,6 @@
 import {z} from 'zod';
 import type {ExtractedProduct} from '../stores/types';
+import {ROBOTISTAN_TAX_PROOF} from './merchant-price-proof';
 export const SNAPSHOT_TTL_MS=12*60*60*1000;
 export const snapshotRecord=z.object({
  readerRevision:z.number().int().min(1).max(2).optional(),
@@ -14,6 +15,7 @@ export type SnapshotRecord=z.infer<typeof snapshotRecord>;
  * increment. Its public Piece cart control accepts one package in steps of one.
  * Repair only that known reader signature; preserve its price and observation. */
 export function upgradeSnapshotReader(row:SnapshotRecord):SnapshotRecord|undefined{
+ if(row.storeId==='robotistan'&&!row.product.warnings.includes(ROBOTISTAN_TAX_PROOF))return undefined;
  if(!['robotzade','robitshop'].includes(row.storeId)||row.readerRevision===2)return row;
  const p=row.product;
  if(!p.warnings.includes('KDV dahil mağaza fiyatı ve satış birimi doğrulandı.')||p.minimumOrderQuantity!==p.orderStep||p.stockQuantity!==null)return undefined;

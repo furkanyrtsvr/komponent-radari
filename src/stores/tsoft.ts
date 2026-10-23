@@ -3,6 +3,8 @@ import { JsonLdAdapter, parseProduct, parsePrice } from "./base";
 import type { ExtractedProduct } from "./types";
 import type { PriceTier } from "../lib/pricing";
 import { jumperDetails } from "../lib/catalog-identity";
+import {robotistanTaxProof} from './tsoft-tax';
+import {ROBOTISTAN_TAX_PROOF} from '../lib/merchant-price-proof';
 
 // Verified against the public product controls of the configured T-Soft stores.
 // The legacy URL slug is never used to infer pack size or electrical ratings.
@@ -11,11 +13,11 @@ export function parseTsoftProduct(html: string, url: string): ExtractedProduct {
     $ = load(html);
   const scope=$("h1").first().closest("#product-right, #productRight");
   if(!scope.length) throw new Error("Ana ürünün fiyat ve satış bölümü doğrulanamadı.");
-  const direnc = new URL(url).hostname.endsWith("direnc.net");
-  const grossValues=[...new Set(scope.find(direnc ? '[data-toggle="price-sell-vat"]' : scope.find(".mainPrices .product-price").length ? ".mainPrices .product-price" : ".product-price").map((_,node)=>parsePrice($(node).text())).get().filter((price):price is number=>price!==null && price>0))];
-  const gross=grossValues.length===1 ? grossValues[0] : null;
+  const toggledPrices=scope.find('[data-toggle="price-sell-vat"]').length>0;
+  const grossValues=[...new Set(scope.find(toggledPrices ? '[data-toggle="price-sell-vat"]' : scope.find(".mainPrices .product-price").length ? ".mainPrices .product-price" : ".product-price").map((_,node)=>parsePrice($(node).text())).get().filter((price):price is number=>price!==null && price>0))];
+  let gross=grossValues.length===1 ? grossValues[0] : null;
   let net = parsePrice(
-    scope.find(direnc ? '[data-toggle="price-sell"]' : ".product-price-not-vat")
+    scope.find(toggledPrices ? '[data-toggle="price-sell"]' : ".product-price-not-vat")
       .first()
       .text(),
   );
@@ -24,13 +26,19 @@ export function parseTsoftProduct(html: string, url: string): ExtractedProduct {
     const labelled = scope.find("span").filter((_, element) => /^\s*[\d.,]+\s*TL\s*\+\s*KDV\s*$/.test($(element).text())).first().text();
     net = labelled ? parsePrice(labelled) : null;
   }
+  const robotistan=new URL(url).hostname.replace(/^www\./,'')==='robotistan.com';
+  const tax=robotistan&&(toggledPrices||/PRODUCT_DATA\s*\.\s*push\s*\(/.test(html))?robotistanTaxProof(html,url,p,grossValues):undefined;
+  if(tax){gross=tax.gross;net=tax.net;}
+  if(robotistan&&!tax&&(!gross||!net||gross<=net))throw new Error('Robotistan KDV dahil ve hariç fiyat ayrımı doğrulanamadı.');
   // T-Soft publishes either net or gross in JSON-LD depending on the item.
   // Cross-check both explicitly labelled DOM amounts, then use the gross amount.
-  if (gross === null || gross <= 0 || (p.price !== gross && p.price !== net))
+  if (gross === null || gross <= 0 || (p.price !== gross && p.price !== net)) {
+    console.warn('Merchant price evidence mismatch',{host:new URL(url).hostname,path:new URL(url).pathname,metadataPrice:p.price,metadataCurrency:p.currency,grossValues,net,visibleGross:scope.find('[data-toggle="price-sell-vat"], .mainPrices .product-price, .product-price').map((_,el)=>$(el).text().trim().slice(0,100)).get(),visibleNet:scope.find('[data-toggle="price-sell"], .product-price-not-vat, .kdv-dahil2 span').map((_,el)=>$(el).text().trim().slice(0,100)).get()});
     throw new Error(
       "JSON-LD fiyatı sayfadaki KDV dahil/hariç fiyatlarla eşleşmedi.",
     );
-  const input = scope.find(direnc ? 'input[id^="product-count-"]' : 'input[id^="ProductCount"], input[type="number"][id^="Adet"]').first();
+  }
+  const input = scope.find('input[id^="product-count-"], input[id^="ProductCount"], input[type="number"][id^="Adet"]').first();
   const minimum = Number(input.attr("min")),
     step = Number(input.attr("step") ?? (input.attr("type") === "number" ? "1" : ""));
   if (
@@ -70,12 +78,13 @@ export function parseTsoftProduct(html: string, url: string): ExtractedProduct {
     price: gross,
     priceNet: net,
     vatIncluded: true,
-    vatRate: null,
+    vatRate: tax?.vatRate??null,
     minimumOrderQuantity: minimum,
     orderStep: step,
     quantityVerified: true,
     priceTiers: tiers,
     warnings: [
+      ...(robotistan?[ROBOTISTAN_TAX_PROOF]:[]),
       "KDV dahil fiyat ile minimum sipariş ve satış adımı mağaza sayfasından okundu.",
       "Stok miktarı ve kargo ücreti ödeme ekranında doğrulanmalıdır.",
     ],

@@ -6,7 +6,7 @@ import {cookies} from 'next/headers';
 import {LIVE_TTL_MS} from '../pricing';
 import {snapshotProduct,snapshotUsable,SNAPSHOT_TTL_MS,validateSnapshot,SNAPSHOT_UPSERT_SQL,upgradeSnapshotReader,type SnapshotRecord} from '../catalog-snapshot';
 import type {Offer} from '../domain';
-import {safeStoreUrl} from '../../stores/base';
+import {safeStoreUrl,canRetainObservedProduct} from '../../stores/base';
 import {matchesCatalogRequirement} from '../catalog-identity';
 export async function pricePhase(){try{return (await cookies()).get('eub_price_phase')?.value==='B'?'B':'A';}catch{return 'A';}}
 export type SnapshotRow={id:string;store_id:string;url:string;checked_at:string;payload:string};
@@ -60,6 +60,7 @@ export async function readProduct(store:StoreConfig,url:string,force=false):Prom
   if(cached)return cached;
  }
  try{return await rememberProduct(store,await adapterFor(store).getProduct(url));}catch(error){
+  if(!canRetainObservedProduct(error))throw error;
   const cached=await readSnapshot(store,url,Infinity);
   if(cached)return {...cached,readWarning:'Canlı yenileme başarısız; kayıtlı fiyatın kontrol tarihi korunuyor. '+(error instanceof Error?error.message:'Mağaza okunamadı.')};
   throw error;
@@ -71,9 +72,9 @@ export async function phaseOffers(offers:Offer[]){
  return offers.map(offer=>{
   const row=snapshots.get(offer.store_id+':'+canonicalAddress(offer.product_url,offer.store_id));
   const record=row?upgradeSnapshotReader(JSON.parse(row.payload)):undefined;
-  const corrected=!['robotzade','robitshop'].includes(offer.store_id)||Boolean(record);
+  const corrected=!row||Boolean(record);
   let next=corrected?offer:{...offer,last_error:'Satış adımı yeniden kontrol edilmeli.'};
-  if(corrected && row && row.checked_at>=offer.last_checked_at && snapshotUsable(row.checked_at,Infinity)){
+  if(corrected && row && (row.checked_at>offer.last_checked_at||row.checked_at===offer.last_checked_at&&!offer.last_error) && snapshotUsable(row.checked_at,Infinity)){
    const p=record!.product;
    if(matchesCatalogRequirement({name:offer.title,manufacturer:offer.manufacturer,specifications:offer.specifications,unit_type:offer.unit_type},p))next={...offer,unit_type:p.unitType,title:p.name,specifications:p.specifications,price_gross:p.price,price_net:p.priceNet??p.price,unit_price:Math.round(p.price/p.packageQuantity),package_quantity:p.packageQuantity,minimum_order_quantity:p.minimumOrderQuantity,order_step:p.orderStep,price_tiers:JSON.stringify(p.priceTiers||[]),stock_status:p.stockStatus,stock_quantity:p.stockQuantity,image_url:p.image,last_checked_at:row.checked_at,last_error:null};
   }
