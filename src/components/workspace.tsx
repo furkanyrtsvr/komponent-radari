@@ -2187,8 +2187,8 @@ export default function Workspace({
             </>
           )}
           {modal === "url" && <>
-            <Field label="Mağaza ürün bağlantısı"><input type="url" placeholder="https://www.robotistan.com/…" value={form.url} onChange={event=>patch("url",event.target.value)}/></Field>
-            <Field label="İhtiyaç adedi"><input type="number" min="1" max="100000" value={form.quantity} onChange={event=>patch("quantity",event.target.value)}/></Field>
+            <Field label="Mağaza ürün bağlantısı"><input type="url" placeholder="https://www.robotistan.com/…" value={form.url} disabled={!!busy} onChange={event=>{setUrlResult(null);patch("url",event.target.value);}}/></Field>
+            <Field label="İhtiyaç adedi"><input type="number" min="1" max="100000" value={form.quantity} disabled={!!busy} onChange={event=>{setUrlResult(null);patch("quantity",event.target.value);}}/></Field>
             <Button disabled={!!busy || !form.url || !canAdd} onClick={()=>void work("url",async()=>{
               setUrlResult(null);
               const found=await api<LinkResult>("url","POST",{url:form.url.trim(),cartId:cart!.id,quantity:Number(form.quantity)});
