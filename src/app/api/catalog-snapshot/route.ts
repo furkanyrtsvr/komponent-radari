@@ -3,6 +3,7 @@ import {z} from 'zod';
 import {storeCatalog} from '@/lib/catalog';
 import {validateSnapshot} from '@/lib/catalog-snapshot';
 import {saveSnapshots} from '@/lib/server/snapshots';
+import {pendingCollectorRequests,failCollectorRequest,completeCollectorRequest} from '@/lib/server/collector-requests';
 export const dynamic='force-dynamic';
 async function authorized(request:Request){
  const secret=config('CATALOG_INGEST_SECRET');
@@ -11,7 +12,7 @@ async function authorized(request:Request){
 export async function GET(request:Request){try{
  await authorized(request);
  const products=await list<{store_id:string;url:string}>('store_products',{},2000);
- return Response.json({watchlist:products.map(p=>({storeId:p.store_id,url:p.url}))});
+ return Response.json({requests:await pendingCollectorRequests(),watchlist:products.map(p=>({storeId:p.store_id,url:p.url}))});
 }catch(e){return Response.json({error:e instanceof Error?e.message:'Hata'},{status:e instanceof HttpError?e.status:500});}}
 export async function POST(request:Request){try{
  await authorized(request);
@@ -22,7 +23,16 @@ export async function POST(request:Request){try{
  for(const record of records){
   const url=new URL(record.product.url);url.hostname=storeCatalog.find(s=>s.id===record.storeId)!.domain;url.hash='';record.product.url=url.href;
  }
- return Response.json(await saveSnapshots(records));
+ const saved=await saveSnapshots(records);
+ for(const record of records)await completeCollectorRequest(record.storeId,record.requestedUrl||record.product.url,record.checkedAt);
+ return Response.json(saved);
+}catch(e){return Response.json({error:e instanceof Error?e.message:'Hata'},{status:e instanceof HttpError?e.status:400});}}
+export async function PATCH(request:Request){try{
+ await authorized(request);
+ const raw=await request.text();if(raw.length>100000)throw new HttpError(413,'Durum kaydı çok büyük.');
+ const body=z.object({failures:z.array(z.object({id:z.string().uuid(),requestedAt:z.string().datetime(),error:z.string().min(1).max(500)})).max(100)}).parse(JSON.parse(raw));
+ for(const row of body.failures)await failCollectorRequest(row.id,row.requestedAt,row.error);
+ return Response.json({acknowledged:body.failures.length});
 }catch(e){return Response.json({error:e instanceof Error?e.message:'Hata'},{status:e instanceof HttpError?e.status:400});}}
 export async function PUT(request:Request){try{
  await authorized(request);

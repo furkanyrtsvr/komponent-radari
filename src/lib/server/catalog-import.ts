@@ -11,6 +11,7 @@ import { liveSources } from "../../stores/live-catalog";
 import { isRetryableStoreError } from "../../stores/base";
 import { isFresh } from "../pricing";
 import type {ExtractedProduct} from "../../stores/types";
+import {usesCollector} from '../collector-routing';
 
 const categories = new Set(["Geliştirme Kartları", "Butonlar", "Kablolar", "Sensörler", "Dirençler", "Kondansatörler", "Entegreler", "Modüller", "Motorlar", "Güç ve Pil", "Bağlantı Elemanları", "Ölçüm ve Test", "Diğer"]);
 export async function importCatalogProduct(url: string, requestedCategory: string, targetProductId?: string) {
@@ -23,6 +24,7 @@ export async function importCatalogProduct(url: string, requestedCategory: strin
   let p;
   try { p = await readProduct(store,url); }
   catch (error) {
+    if(usesCollector(store.id))throw new HttpError(409,error instanceof Error?error.message:'Toplayıcıdan doğrulanmış ürün bekleniyor.');
     if(previousOffer && isRetryableStoreError(error) && isFresh(previousOffer)) {
       const product=await one<Product>("canonical_products",{id:previousOffer.canonical_product_id});
       const target=targetProductId ? await one<Product>("canonical_products",{id:targetProductId}) : undefined;

@@ -5,6 +5,8 @@ export type ExtractedProduct = {
   checkedAt?:string;
   readMethod?:'snapshot';
   readWarning?:string;
+  collectorManaged?:boolean;
+  collectorPending?:boolean;
   url: string;
   name: string;
   mpn: string;

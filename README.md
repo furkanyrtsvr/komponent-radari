@@ -143,6 +143,8 @@ Paket kaynak kodunu, bağımlılık kilidini, mağaza adres dizinini, testleri v
 
 23 Ekim 2026 mağaza okuyucuları: 223 test; [Robot Sepeti görünüm değişikliği, Robotistan KDV kanıtı ve sunucu erişim sınırları](docs/MAGAZA_OKUMA_2026-10-23.md).
 
+23 Ekim 2026 toplayıcı yönlendirmesi: 235 test; [kalıcı yenileme kuyruğu, öncelik, fiyat kaynağı ve KDV güvenceleri](docs/TOPLAYICI_YONLENDIRME_2026-10-23.md).
+
 ## Otomatik sürümler
 
 [GitHub Release akışı](docs/SURUMLEME.md), main dalına gönderilen değişiklikleri test ve derlemeden sonra sürümler. İlk aktarım yerel kaynağın cc5b940117f6b9bb6a502db8862f387dad57303b commit görüntüsünden hazırlanmıştır.

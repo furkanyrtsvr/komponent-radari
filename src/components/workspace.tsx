@@ -1534,6 +1534,7 @@ export default function Workspace({
                           const productDifference=third.productTotal-best.productTotal, shippingDifference=third.shippingTotal-best.shippingTotal;
                           return <div className="third-store-explanation"><strong>Üç mağazaya bölünce ne değişiyor?</strong><p>Gerçek 3 mağaza planı {money(third.total)}. Ürünler {productDifference<0?`${money(-productDifference)} daha ucuz`:`${money(productDifference)} daha pahalı`}; kargo {shippingDifference<0?`${money(-shippingDifference)} azalıyor`:`${money(shippingDifference)} artıyor`}. {third.total>best.total?`Toplam ${money(third.total-best.total)} daha fazla.`:"Toplam değişmiyor."}</p><button type="button" onClick={()=>{setPlanMode("exact");setSelected(3);}}>3 mağazadaki ürün dağılımını göster</button></div>;
                         })()}
+                        {result.eligibleOffers?.some(o=>o.price_source==='collector')?<p className="muted small">Bu hesapta otomatik toplayıcının arşiv fiyatları var. Anlık okuma değildir; gerçek kontrol tarihleri ürün detayında gösterilir.</p>:null}
                         {result.eligibleOffers?.some(o=>!isFresh(o)) ? <p className="muted small">Bu hesapta son alınan fiyatlar da kullanıldı. Fiyatların gerçek kontrol tarihleri ürün detayında gösterilir; yenileme başarılı olduğunda yeni fiyat kullanılır.</p> : null}
                         {result.reason && (
                           <p className="error-box">{result.reason}</p>
@@ -2337,7 +2338,7 @@ export default function Workspace({
                                     {o.last_error
                                       ? "Son kontrol başarısız"
                                       : isFresh(o)
-                                        ? o.snapshot_max_age_ms?"Kayıtlı fiyat · "+new Date(o.last_checked_at).toLocaleString('tr-TR'):"Güncel teklif"
+                                        ? o.price_source==='collector'?"Toplayıcı arşivi · "+new Date(o.last_checked_at).toLocaleString('tr-TR'):o.snapshot_max_age_ms?"Kayıtlı fiyat · "+new Date(o.last_checked_at).toLocaleString('tr-TR'):"Güncel teklif"
                                         : `Son alınan fiyat · ${new Date(o.last_checked_at).toLocaleString('tr-TR')}`}
                                   </small>
                                 )}

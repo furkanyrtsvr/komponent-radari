@@ -45,6 +45,15 @@ export function safeStoreUrl(raw: string, domain: string) {
   url.hash = "";
   return url;
 }
+/** Repair a same-merchant HTTP Location without ever requesting plaintext.
+ * Foreign hosts, credentials and non-default ports still fail the same guard. */
+export function safeRedirectUrl(location:string,from:URL,domain:string){
+ const next=new URL(location,from);
+ if(next.protocol==='http:'&&!next.port&&!next.username&&!next.password)next.protocol='https:';
+ try{return safeStoreUrl(next.href,domain);}catch{
+  throw new StoreReadError(`Mağaza güvenli olmayan yönlendirme döndürdü: ${next.protocol}//${next.hostname}${next.port?':'+next.port:''}${next.pathname}. Yönlendirme izlenmedi.`,false);
+ }
+}
 async function boundedFetch(url: URL, domain: string,signal=AbortSignal.timeout(12000)) {
   for (let redirects = 0; redirects <= 3; redirects++) {
     signal.throwIfAborted();
@@ -61,7 +70,7 @@ async function boundedFetch(url: URL, domain: string,signal=AbortSignal.timeout(
     if (r.status >= 300 && r.status < 400) {
       const loc = r.headers.get("location");
       if (!loc) throw new Error("Geçersiz yönlendirme");
-      url = safeStoreUrl(new URL(loc, url).href, domain);
+      url = safeRedirectUrl(loc, url, domain);
       continue;
     }
     if (!r.ok)

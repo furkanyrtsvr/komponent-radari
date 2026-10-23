@@ -1,6 +1,8 @@
 /** Independent merchant collector. No Cloudflare runtime or browser session required. */
 import {DatabaseSync} from 'node:sqlite';
 import {collectionQueue} from './queue';
+import {registerCollectorRequests} from './collector-requests';
+import type {CollectorRequest} from '../../src/lib/collector-routing';
 import {readFileSync,mkdirSync,openSync,closeSync,unlinkSync,existsSync,writeFileSync} from 'node:fs';
 import {createReadStream} from 'node:fs';
 import {createInterface} from 'node:readline';
@@ -22,7 +24,7 @@ db.exec(`PRAGMA journal_mode=WAL;PRAGMA synchronous=NORMAL;
  CREATE TABLE IF NOT EXISTS runs(id TEXT PRIMARY KEY,started_at TEXT NOT NULL,finished_at TEXT,summary TEXT);
  CREATE TABLE IF NOT EXISTS history(store_id TEXT,url TEXT,checked_at TEXT,price INTEGER,stock TEXT,PRIMARY KEY(store_id,url,checked_at));`);
 const write=db.prepare(`UPDATE products SET name=?,checked_at=?,payload=?,last_attempt=?,next_due=?,error=NULL,uploaded_at=NULL WHERE store_id=? AND url=? AND (checked_at IS NULL OR checked_at<? OR (checked_at=? AND COALESCE(json_extract(payload,'$.readerRevision'),0)<?))`);
-function save(record:SnapshotRecord){const p=record.product;db.prepare('INSERT OR IGNORE INTO products(store_id,url,name,category,source_category,generation) VALUES(?,?,?,?,?,?)').run(record.storeId,p.url,p.name,'Diğer','',String(db.prepare("SELECT value FROM metadata WHERE key='generation'").get()?.value||''));return write.run(p.name,record.checkedAt,JSON.stringify(record),record.checkedAt,new Date(Date.parse(record.checkedAt)+12*3600000).toISOString(),record.storeId,p.url,record.checkedAt,record.checkedAt,record.readerRevision||0).changes;}
+function save(record:SnapshotRecord){const p=record.product,key=record.requestedUrl||p.url;db.prepare('INSERT OR IGNORE INTO products(store_id,url,name,category,source_category,generation) VALUES(?,?,?,?,?,?)').run(record.storeId,key,p.name,'Diğer','',String(db.prepare("SELECT value FROM metadata WHERE key='generation'").get()?.value||''));return write.run(p.name,record.checkedAt,JSON.stringify(record),record.checkedAt,new Date(Date.parse(record.checkedAt)+12*3600000).toISOString(),record.storeId,key,record.checkedAt,record.checkedAt,record.readerRevision||0).changes;}
 async function run(){
  const manifestText=readFileSync('public/catalog/manifest.json','utf8'),manifest=JSON.parse(manifestText),generation=createHash('sha256').update(manifestText).digest('hex');
  if(db.prepare("SELECT value FROM metadata WHERE key='generation'").get()?.value!==generation){
@@ -36,32 +38,34 @@ async function run(){
  }
  const site=arg('site','https://komponent-radari.equalwood4.chatgpt.site'),secret=process.env.CATALOG_INGEST_SECRET;
  const startedAt=new Date().toISOString(),storeErrors=new Map<string,string>();
+ let requests:CollectorRequest[]=[];const requestFailures:{id:string;requestedAt:string;error:string}[]=[];
  const auth:Record<string,string>=secret?{authorization:`Bearer ${secret}`}:{},summary={indexed:db.prepare('SELECT COUNT(*) AS n FROM products WHERE active=1').get()!.n,checked:0,failed:0,imported:0,uploaded:0,uploadError:''};
  if(arg('feed')){
   let lineNo=0;for await(const line of createInterface({input:createReadStream(arg('feed')),crlfDelay:Infinity})){lineNo++;if(!line.trim())continue;try{const record=validateSnapshot(JSON.parse(line),storeCatalog);if(save(record))summary.imported++;}catch(e){summary.failed++;console.error(`Veri satırı ${lineNo}: ${e instanceof Error?e.message:e}`);}}
  }
  if(process.argv.includes('--collect')){
-  if(secret){try{const r=await fetch(`${site}/api/catalog-snapshot`,{headers:auth,signal:AbortSignal.timeout(15000)});if(!r.ok)throw new Error(`HTTP ${r.status}`);const {watchlist}=await r.json() as {watchlist:{storeId:string;url:string}[]};const mark=db.prepare('UPDATE products SET priority=10 WHERE store_id=? AND url=?');for(const row of watchlist)mark.run(row.storeId,row.url);}catch(e){console.error('Sepet bağlantıları alınamadı; katalog sırası kullanılıyor:',e instanceof Error?e.message:e);}}
+  if(secret){try{const r=await fetch(`${site}/api/catalog-snapshot`,{headers:auth,signal:AbortSignal.timeout(15000)});if(!r.ok)throw new Error(`HTTP ${r.status}`);const payload=await r.json() as {requests?:CollectorRequest[];watchlist:{storeId:string;url:string}[]};db.prepare('UPDATE products SET priority=0 WHERE priority>=10').run();const mark=db.prepare('UPDATE products SET priority=10,active=1 WHERE store_id=? AND url=?');for(const row of payload.watchlist)mark.run(row.storeId,row.url);requests=registerCollectorRequests(db,payload.requests||[],storeCatalog,generation);for(const request of requests){const old=db.prepare('SELECT error,last_attempt FROM products WHERE store_id=? AND url=?').get(request.storeId,request.url) as {error:string|null;last_attempt:string|null};if(old?.error&&old.last_attempt&&old.last_attempt>=request.requestedAt)requestFailures.push({id:request.id,requestedAt:request.requestedAt,error:old.error.slice(0,500)});}}catch(e){console.error('Yenileme kuyruğu alınamadı; katalog sırası kullanılıyor:',e instanceof Error?e.message:e);}}
   const selected=arg('stores',storeCatalog.map(s=>s.id).join(',')).split(','),limit=Math.min(250,Math.max(1,Number(arg('limit','8'))));
   const knownOnly=process.argv.includes('--known-only');
   if(!Number.isInteger(limit)||selected.some(id=>!storeCatalog.some(s=>s.id===id)))throw new Error('Geçersiz mağaza veya kayıt sınırı.');
   await Promise.all(storeCatalog.filter(s=>selected.includes(s.id)).map(async store=>{
    let delay=3000;
-   try{const r=await fetch(`https://${store.domain}/robots.txt`,{headers:{'user-agent':'EUB-PriceComparison/1.0 (+public product metadata; no authentication)'},signal:AbortSignal.timeout(10000)});if(!r.ok)throw new Error(`robots HTTP ${r.status}`);const text=await r.text();delay=Math.max(delay,...[...text.matchAll(/^\s*Crawl-delay:\s*([\d.]+)/gim)].map(m=>Number(m[1])*1000));}catch(e){summary.failed++;storeErrors.set(store.id,String(e).slice(0,500));console.error(`${store.id}: ${e instanceof Error?e.message:e}`);return;}
+   try{const r=await fetch(`https://${store.domain}/robots.txt`,{headers:{'user-agent':'EUB-PriceComparison/1.0 (+public product metadata; no authentication)'},signal:AbortSignal.timeout(10000)});if(!r.ok)throw new Error(`robots HTTP ${r.status}`);const text=await r.text();delay=Math.max(delay,...[...text.matchAll(/^\s*Crawl-delay:\s*([\d.]+)/gim)].map(m=>Number(m[1])*1000));}catch(e){summary.failed++;storeErrors.set(store.id,String(e).slice(0,500));for(const request of requests.filter(r=>r.storeId===store.id))requestFailures.push({id:request.id,requestedAt:request.requestedAt,error:String(e).slice(0,500)});console.error(`${store.id}: ${e instanceof Error?e.message:e}`);return;}
    const rows=collectionQueue(db,store.id,limit,knownOnly);
    for(const row of rows){
     await new Promise(r=>setTimeout(r,delay));
     try{
      const p=await adapterFor(store).getProduct(row.url),pack=p.packageQuantity||1;
      const product={...p,packageQuantity:pack,minimumOrderQuantity:p.minimumOrderQuantity||pack,orderStep:p.orderStep||pack,image:p.image?.startsWith('https://')?p.image:null};
-     const record=validateSnapshot({readerRevision:2,storeId:store.id,checkedAt:new Date().toISOString(),product},storeCatalog);
+     const record=validateSnapshot({readerRevision:2,storeId:store.id,requestedUrl:row.url,checkedAt:new Date().toISOString(),product},storeCatalog);
      if(save(record)){db.prepare('INSERT OR IGNORE INTO history VALUES(?,?,?,?,?)').run(store.id,product.url,record.checkedAt,product.price,product.stockStatus);}
      summary.checked++;console.log(`${store.id}: ${p.name} · ${((p.price||0)/100).toFixed(2)} TL · ${p.stockStatus}`);
-    }catch(e){const at=new Date().toISOString(),error=e instanceof Error?e.message:String(e);db.prepare('UPDATE products SET last_attempt=?,next_due=?,error=? WHERE store_id=? AND url=?').run(at,new Date(Date.now()+12*3600000).toISOString(),error,store.id,row.url);summary.failed++;console.error(`${store.id}: ${row.url}: ${error}`);}
+    }catch(e){const at=new Date().toISOString(),error=e instanceof Error?e.message:String(e);db.prepare('UPDATE products SET last_attempt=?,next_due=?,error=? WHERE store_id=? AND url=?').run(at,new Date(Date.now()+12*3600000).toISOString(),error,store.id,row.url);for(const request of requests.filter(r=>r.storeId===store.id&&r.url===row.url))requestFailures.push({id:request.id,requestedAt:request.requestedAt,error:error.slice(0,500)});summary.failed++;console.error(`${store.id}: ${row.url}: ${error}`);}
    }
   }));
  }
  if(secret){
+  for(let offset=0;offset<requestFailures.length;offset+=100){const r=await fetch(`${site}/api/catalog-snapshot`,{method:'PATCH',headers:{...auth,'content-type':'application/json'},body:JSON.stringify({failures:requestFailures.slice(offset,offset+100)}),signal:AbortSignal.timeout(20000)});if(!r.ok)throw new Error(`Yenileme hata durumu kaydedilemedi: HTTP ${r.status}`);}
   const pending=db.prepare(`SELECT store_id,url,payload,checked_at FROM products WHERE payload IS NOT NULL AND uploaded_at IS NULL AND checked_at>? ORDER BY checked_at`).all(new Date(Date.now()-12*3600000).toISOString()) as {store_id:string;url:string;payload:string;checked_at:string}[];
   for(let offset=0;offset<pending.length;offset+=50){const batch=pending.slice(offset,offset+50);try{let result:{saved:number;ignored:number}|undefined;for(let attempt=0;attempt<3;attempt++){try{const r=await fetch(`${site}/api/catalog-snapshot`,{method:'POST',headers:{...auth,'content-type':'application/json'},body:JSON.stringify({records:batch.map(row=>JSON.parse(row.payload))}),signal:AbortSignal.timeout(20000)});if(!r.ok)throw new Error(`HTTP ${r.status}: ${(await r.text()).slice(0,200)}`);result=await r.json() as {saved:number;ignored:number};break;}catch(error){if(attempt===2)throw error;await new Promise(resolve=>setTimeout(resolve,1000*(attempt+1)));}}if(!result)throw new Error('Arşiv aktarımı yanıt vermedi.');if(result.saved+result.ignored!==batch.length)throw new Error('Aktarım sayısı uyuşmuyor.');const mark=db.prepare('UPDATE products SET uploaded_at=? WHERE store_id=? AND url=? AND checked_at=?');for(const row of batch)mark.run(new Date().toISOString(),row.store_id,row.url,row.checked_at);summary.uploaded+=batch.length;}catch(e){summary.uploadError=e instanceof Error?e.message:String(e);console.error(summary.uploadError);break;}}
  }

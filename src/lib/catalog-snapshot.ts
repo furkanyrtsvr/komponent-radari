@@ -2,9 +2,10 @@ import {z} from 'zod';
 import type {ExtractedProduct} from '../stores/types';
 import {ROBOTISTAN_TAX_PROOF} from './merchant-price-proof';
 export const SNAPSHOT_TTL_MS=12*60*60*1000;
+export const SNAPSHOT_TRUST_SQL=`(store_id<>'robotistan' OR (COALESCE(json_extract(payload,'$.product.vatRate'),0)>0 AND EXISTS (SELECT 1 FROM json_each(payload,'$.product.warnings') WHERE value='${ROBOTISTAN_TAX_PROOF}')))`;
 export const snapshotRecord=z.object({
  readerRevision:z.number().int().min(1).max(2).optional(),
- storeId:z.string().max(60),checkedAt:z.string().datetime(),
+ storeId:z.string().max(60),checkedAt:z.string().datetime(),requestedUrl:z.string().url().max(2000).optional(),
  product:z.object({unitType:z.enum(['adet','metre','set']).optional(),url:z.string().url().max(2000),name:z.string().min(1).max(500),mpn:z.string().max(300),manufacturer:z.string().max(300),model:z.string().max(300),image:z.string().url().max(2000).nullable(),price:z.number().int().positive().max(10000000000),currency:z.literal('TRY'),vatIncluded:z.literal(true),vatRate:z.number().min(0).max(100).nullable(),packageQuantity:z.number().int().positive().max(1000000),stockStatus:z.enum(['in_stock','out_of_stock','unknown']),stockQuantity:z.number().int().nonnegative().nullable(),specifications:z.string().max(20000),warnings:z.array(z.string().max(1000)).max(50),quantityVerified:z.literal(true),minimumOrderQuantity:z.number().int().positive(),orderStep:z.number().int().positive(),priceNet:z.number().nonnegative().nullable().optional(),priceTiers:z.array(z.object({minimum:z.number().int().positive(),maximum:z.number().int().positive().nullable(),price:z.number().int().positive(),netUnitPriceMicros:z.number().int().positive().optional(),vatBasisPoints:z.number().int().min(0).max(10000).optional(),rounding:z.literal('net-subtotal').optional()})).max(50).optional()})
 });
 // Corrections to the reader may replace the same observation, but never a
@@ -24,7 +25,9 @@ export function upgradeSnapshotReader(row:SnapshotRecord):SnapshotRecord|undefin
 export function snapshotUsable(checkedAt:string,maxAge=SNAPSHOT_TTL_MS,at=Date.now()) {const age=at-Date.parse(checkedAt);return age>=0&&age<maxAge;}
 export function validateSnapshot(input:unknown,stores:{id:string;domain:string}[],at=Date.now()):SnapshotRecord {
  const row=snapshotRecord.parse(input),store=stores.find(s=>s.id===row.storeId),url=new URL(row.product.url);
+ if(row.storeId==='robotistan'&&(!row.product.warnings.includes(ROBOTISTAN_TAX_PROOF)||!row.product.vatRate||row.product.vatRate<=0))throw new Error('Robotistan Türkiye KDV kanıtı eksik; arşiv kaydı kullanılmadı.');
  if(!store||url.protocol!=='https:'||url.username||url.password||url.port||url.hostname.replace(/^www\./,'')!==store.domain.replace(/^www\./,''))throw new Error('Mağaza adresi geçersiz.');
+ if(row.requestedUrl){const requested=new URL(row.requestedUrl);if(requested.protocol!=='https:'||requested.username||requested.password||requested.port||requested.hostname.replace(/^www\./,'')!==store.domain.replace(/^www\./,''))throw new Error('İstenen mağaza adresi geçersiz.');requested.hostname=store.domain;requested.hash='';row.requestedUrl=requested.href;}
  if(!snapshotUsable(row.checkedAt,SNAPSHOT_TTL_MS,at))throw new Error('Fiyat kontrol zamanı geçersiz veya 12 saatten eski.');
  url.hostname=store.domain;url.hash='';row.product.url=url.href;
  row.checkedAt=new Date(row.checkedAt).toISOString();

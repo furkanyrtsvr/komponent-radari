@@ -38,6 +38,7 @@ export type Offer = {
   /** Scoped merchant metadata, loaded for matching; not a store_offers column. */
   specifications?:string;
   snapshot_max_age_ms?:number;
+  price_source?:'collector';
   id: string;
   canonical_product_id: string;
   store_id: string;

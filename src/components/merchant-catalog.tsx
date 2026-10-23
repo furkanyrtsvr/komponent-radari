@@ -464,10 +464,10 @@ export function MerchantCatalog({
                       </a>
                       <span title={previews[source.url]?.message || undefined}>
                         {checkedPrice(source.url,selectedProduct.key) || (previews[source.url]
-                          ? previews[source.url].key && previews[source.url].key !== selectedProduct.key ? "Ürün bilgisi eşleşmedi" : previews[source.url].stockStatus === "out_of_stock" ? "Stokta yok" : "Fiyat doğrulanamadı"
+                          ? previews[source.url].key && previews[source.url].key !== selectedProduct.key ? "Ürün bilgisi eşleşmedi" : previews[source.url].collectorPending ? "Toplayıcı yenilemesi bekleniyor" : previews[source.url].stockStatus === "out_of_stock" ? "Stokta yok" : "Fiyat doğrulanamadı"
                           : "Mağaza kontrol ediliyor…")}
                         {checkedPrice(source.url,selectedProduct.key) ? previews[source.url]?.unitType==='metre' ? " / metre · KDV dahil" : selectedProduct.key.startsWith("cable:jumper:") ? " / set · KDV dahil" : ` / ${previews[source.url]?.packageQuantity && previews[source.url].packageQuantity!>1 ? `${previews[source.url].packageQuantity} adetlik paket` : "adet"} · KDV dahil` : ""}
-                        {previews[source.url]?.retained ? " · son doğrulanan fiyat" : ""}
+                        {previews[source.url]?.collectorManaged ? " · Toplayıcı arşivi" : previews[source.url]?.retained ? " · son doğrulanan fiyat" : ""}
                         {checkedPrice(source.url,selectedProduct.key) && <small>Son kontrol · {new Date(previews[source.url]?.checkedAt || offers.find(o=>o.product_url===source.url)?.last_checked_at || '').toLocaleString('tr-TR')}</small>}
                       </span>
                       {previews[source.url]?.message && !checkedPrice(source.url,selectedProduct.key) && <small>{previews[source.url].message}</small>}

@@ -1,5 +1,6 @@
 import type {Offer} from './domain';
 import {isFresh,quoteOffer,hasObservedPrice} from './pricing';
+import {collectorLabel} from './collector-routing';
 export type Availability={price:number|null;previousPrice?:number;label:string;note:string;offer?:Offer};
 /** A missing quote is not evidence that no merchant offer exists. */
 export function offerAvailability(offers:Offer[],quantity=1,options:{stores?:string[];exact?:boolean;refreshing?:boolean;at?:number;allowLastKnown?:boolean}={}):Availability{
@@ -10,7 +11,7 @@ export function offerAvailability(offers:Offer[],quantity=1,options:{stores?:str
  const fresh=valid.filter(o=>isFresh(o,options.at));
  const usable=options.allowLastKnown?valid:fresh;
  const available=usable.filter(o=>o.stock_status==='in_stock'&&enough(o)).sort((a,b)=>quote(a).cost-quote(b).cost || Date.parse(b.last_checked_at)-Date.parse(a.last_checked_at));
- if(available[0]){const current=isFresh(available[0],options.at);return {price:quote(available[0]).cost,label:current?'Stokta':'Son alınan fiyat',note:current?'KDV dahil':`KDV dahil · son kontrol ${new Date(available[0].last_checked_at).toLocaleString('tr-TR')}`,offer:available[0]};}
+ if(available[0]){const current=isFresh(available[0],options.at),archived=available[0].price_source==='collector';return {price:quote(available[0]).cost,label:archived?'Toplayıcı arşivi':current?'Stokta':'Son alınan fiyat',note:archived?collectorLabel(available[0].last_checked_at)+' · KDV dahil':current?'KDV dahil':`KDV dahil · son kontrol ${new Date(available[0].last_checked_at).toLocaleString('tr-TR')}`,offer:available[0]};}
  const previous=valid.filter(o=>o.stock_status==='in_stock'&&enough(o)).sort((a,b)=>Date.parse(b.last_checked_at)-Date.parse(a.last_checked_at));
  if(previous[0])return {price:null,previousPrice:quote(previous[0]).cost,label:options.refreshing?'Fiyat yenileniyor':'Güncelleme gerekli',note:'Son doğrulanmış fiyat; güncel sepet hesabına henüz dahil değil',offer:previous[0]};
  if(!selected.length)return {price:null,label:offers.length?(offers.every(o=>o.variant_conflict)?'Farklı varyant bulundu':'Filtre dışında'):options.refreshing?'Kontrol ediliyor':'Henüz doğrulanmadı',note:offers.length?'Mağaza seçimi, eşleşme filtresi veya ürün varyantını kontrol edin':'Mağaza fiyatı ve stok durumu kontrol edilmeli'};

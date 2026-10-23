@@ -10,7 +10,7 @@ export function linkQuotes(offers:Offer[],stores:Store[],quantity:number,include
     if(!Number.isSafeInteger(quote.cost)||quote.cost<=0)return [];
     if(offer.stock_quantity!==null && offer.stock_quantity<quote.purchasedQuantity)return [];
     const shipping=store.free_shipping_threshold!==null && quote.cost>=store.free_shipping_threshold ? 0 : store.shipping_base_price;
-    return [{storeId:store.id,store:store.name,offerId:offer.id,originalOfferId:offer.original_offer_id || offer.id,title:offer.title,image:offer.image_url,nameMatch:Boolean(offer.name_match),variantConflict:offer.variant_conflict||'',excluded:Boolean(offer.excluded),url:offer.product_url,productTotal:quote.cost,shipping,total:quote.cost+shipping,purchasedQuantity:quote.purchasedQuantity,unitType:offer.unit_type || 'adet',estimated:store.shipping_known===false,checkedAt:offer.last_checked_at,lastKnown:!isFresh(offer)}];
+    return [{storeId:store.id,store:store.name,offerId:offer.id,originalOfferId:offer.original_offer_id || offer.id,title:offer.title,image:offer.image_url,nameMatch:Boolean(offer.name_match),variantConflict:offer.variant_conflict||'',excluded:Boolean(offer.excluded),url:offer.product_url,productTotal:quote.cost,shipping,total:quote.cost+shipping,purchasedQuantity:quote.purchasedQuantity,unitType:offer.unit_type || 'adet',estimated:store.shipping_known===false,checkedAt:offer.last_checked_at,lastKnown:!isFresh(offer),fromCollector:offer.price_source==='collector'}];
   });
   return quotes.sort((a,b)=>a.total-b.total || a.store.localeCompare(b.store));
 }

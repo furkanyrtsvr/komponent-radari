@@ -7,6 +7,7 @@ import {LIVE_TTL_MS} from '../pricing';
 import { catalogIdentity } from "../catalog-identity";
 import { isRetryableStoreError } from "../../stores/base";
 import { catalogueSources } from "./live";
+import {usesCollector,COLLECTOR_TTL_MS,CollectorReadError} from '../collector-routing';
 
 export type CatalogPreview = {
   url: string;
@@ -18,6 +19,8 @@ export type CatalogPreview = {
   checkedAt: string;
   message: string;
   retained?: boolean;
+  collectorManaged?:boolean;
+  collectorPending?:boolean;
   packageQuantity?:number;
   unitType?:import("../sales-unit").SalesUnit;
   maxAgeMs?:number;
@@ -47,23 +50,25 @@ export async function previewCatalogProducts(urls: string[], force = false) {
       const value = (async (): Promise<CatalogPreview> => {
         const boundedStore={...store,requestSignal:AbortSignal.timeout(18000)};
         const adapter = adapterFor(boundedStore);
-        let product, message = "";
+        let product, message = "",collectorPending=false;
         try { product = await readProduct(boundedStore,url,force); }
         catch (error) {
           message = error instanceof Error ? error.message : "Mağaza okunamadı.";
+          collectorPending=error instanceof CollectorReadError&&error.pending;
           if(isRetryableStoreError(error) && cached) {
             const previous=await cached.value;
             if(previous.price && Date.now()-Date.parse(previous.checkedAt)<5*60*1000)
               return {...previous,retained:true,message:"Geçici erişim hatası; son 5 dakika içinde doğrulanan fiyat gösteriliyor."};
           }
-          if (!isRetryableStoreError(error) && adapter.getCatalogProduct) { try { product = await adapter.getCatalogProduct(url); } catch { /* Return an explicit unreadable source. */ } }
+          if (!usesCollector(store.id)&&!isRetryableStoreError(error) && adapter.getCatalogProduct) { try { product = await adapter.getCatalogProduct(url); } catch { /* Return an explicit unreadable source. */ } }
         }
         const verified = product?.price && product.currency === "TRY" && product.vatIncluded === true && product.quantityVerified === true;
         return {url, name:product?.name || "", key:product ? catalogIdentity(product) : "",
           image:product?.image?.startsWith("https://") ? product.image : null,
           price:verified ? product!.price : null, stockStatus:product?.stockStatus || "unknown",
           checkedAt:product?.checkedAt || new Date().toISOString(), packageQuantity:product?.packageQuantity || 1,unitType:product?.unitType,
-          maxAgeMs:product?.readMethod==='snapshot'?(phase==='B'?SNAPSHOT_TTL_MS:LIVE_TTL_MS):5*60*1000,
+          maxAgeMs:product?.collectorManaged?COLLECTOR_TTL_MS:product?.readMethod==='snapshot'?(phase==='B'?SNAPSHOT_TTL_MS:LIVE_TTL_MS):5*60*1000,
+          collectorManaged:usesCollector(store.id),collectorPending:product?.collectorPending??collectorPending,
           sources:product ? catalogueSources(product) : [],
           retained:Boolean(product?.readWarning),
           message:product?.readWarning || (verified ? product?.readMethod==='snapshot'?'Kayıtlı fiyat; son kontrol: '+product.checkedAt:'' : message || "Fiyat ve satış birimi doğrulanamadı.")};

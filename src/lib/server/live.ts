@@ -10,6 +10,7 @@ import { jumperDetails, catalogIdentity, matchesCatalogRequirement,variantConfli
 import { isRetryableStoreError, JsonLdAdapter } from "../../stores/base";
 import { isFresh,hasObservedPrice } from "../pricing";
 import {fairRefreshQueue} from "../async-deadline";
+import {usesCollector,CollectorReadError} from '../collector-routing';
 import {catalogueSources} from "../catalog-sources";
 import {nameMatchScore} from '../../../public/catalog/product-identity.js';
 export {catalogueSources} from "../catalog-sources";
@@ -138,7 +139,7 @@ async function checkSource(
     )
       return {
         store: store.name,
-        status: existing.canonical_product_id===source.productId ? "cached" : "variant",
+        status: existing.canonical_product_id===source.productId ? usesCollector(store.id)?'archive':"cached" : "variant",
         relatedProductId:existing.canonical_product_id,
         productId: source.productId,
       };
@@ -195,12 +196,13 @@ async function checkSource(
       );
       return {
         store: store.name,
-        status: p.readMethod==='snapshot' && !isFresh({source:'live',last_error:null,last_checked_at:p.checkedAt!,snapshot_max_age_ms:phase==='B'?43200000:undefined} as Offer)?'last_known':"updated",
+        status: p.collectorManaged?'archive':p.readMethod==='snapshot' && !isFresh({source:'live',last_error:null,last_checked_at:p.checkedAt!,snapshot_max_age_ms:phase==='B'?43200000:undefined} as Offer)?'last_known':"updated",
         productId: source.productId,
         stockStatus:p.stockStatus,
       };
     } catch (e) {
       const message = e instanceof Error ? e.message : "Mağaza okunamadı";
+      if(e instanceof CollectorReadError){await update('scrape_jobs',{status:e.pending?'waiting_collector':'collector_unverified',error:message,finished_at:now()},{id:job});return {store:store.name,status:e.pending?'collector_pending':'failed',productId:source.productId,message};}
       const archiveMode=await pricePhase()==='B';
       if(!archiveMode)recentFailures.set(url, Date.now());
       const retained=Boolean(existing && isRetryableStoreError(e) && hasObservedPrice(existing));
@@ -319,7 +321,7 @@ export async function syncLive(productIds?: string[], force = false) {
           results.push({store:store.name,status:'deferred',productId:source.productId});
         }
       }
-      if(deadline.aborted||snapshotMode)return;
+      if(deadline.aborted||snapshotMode||usesCollector(store.id))return;
       if (!sources.some((s) => s.storeId === store.id)) return;
       await lock("shipping:" + store.id, async () => {
         const rule = await one<{ id: string; last_updated: string; rules:string; source_url?:string|null }>(
@@ -358,6 +360,7 @@ export async function syncLive(productIds?: string[], force = false) {
     retained = rows.filter((r) => r.status === "retained" || r.status==='last_known').length,
     deferred = rows.filter((r) => r.status === "deferred").length;
   const related=rows.filter(row=>row.status==='variant').length;
+  const archived=rows.filter(row=>row.status==='archive').length,pending=rows.filter(row=>row.status==='collector_pending').length;
   return {
     demo: false,
     checked,
@@ -366,16 +369,17 @@ export async function syncLive(productIds?: string[], force = false) {
     retained,
     deferred,
     related,
+    archived,pending,
     total: rows.length,
     results,
-    message: `${checked} ${snapshotMode?'arşiv / canlı teklif güncellendi':'canlı teklif güncellendi'}${related ? `, ${related} benzer isim/model teklifi bulundu` : ""}${cached ? `, ${cached} teklif son ${snapshotMode?'12 saat':'20 dakika'} içinde kontrol edilmişti` : ""}${retained ? `, ${retained} son alınan fiyat gerçek kontrol tarihiyle korundu` : ""}${failed ? `, ${failed} teklif doğrulanamadı` : ""}${deferred ? `. Yenileme sınırına ulaşıldı; ${deferred} bağlantı sonraki kontrolde ele alınabilir` : ""}${snapshotMode?'. Güncel arşiv kullanılır; eksik veya eski kayıtta canlı okuma denenir':''}.`,
+    message: `${checked} ${snapshotMode?'arşiv / canlı teklif güncellendi':'canlı teklif güncellendi'}${archived?`, ${archived} toplayıcı arşiv fiyatı gerçek kontrol tarihiyle kullanıldı`:''}${pending?`, ${pending} ürün otomatik toplama sırasında`:''}${related ? `, ${related} benzer isim/model teklifi bulundu` : ""}${cached ? `, ${cached} teklif son ${snapshotMode?'12 saat':'20 dakika'} içinde kontrol edilmişti` : ""}${retained ? `, ${retained} son alınan fiyat gerçek kontrol tarihiyle korundu` : ""}${failed ? `, ${failed} teklif doğrulanamadı` : ""}${deferred ? `. Yenileme sınırına ulaşıldı; ${deferred} bağlantı sonraki kontrolde ele alınabilir` : ""}${snapshotMode?'. Güncel arşiv kullanılır; toplayıcı mağazalarında eksik kayıt sıraya alınır':''}.`,
   };
 }
 export async function searchLive(query: string) {
   if (query.trim().length < 2)
     throw new HttpError(400, "En az iki karakter yazın.");
   const stores = (await list<Store>("stores")).filter(
-    (s) => s.enabled && ["direnc", "robotistan"].includes(s.id),
+    (s) => s.enabled && ["direnc", "robotistan"].includes(s.id)&&!usesCollector(s.id),
   );
   const results = await Promise.allSettled(
     stores.map(async (store) => {
