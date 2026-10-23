@@ -29,6 +29,7 @@ import { hasObservedPrice, isFresh } from "@/lib/pricing";
 import { catalogIdentity } from "@/lib/catalog-identity";
 import type { CatalogPreview } from "@/lib/server/catalog-preview";
 import {catalogFeedback} from '@/lib/feedback-catalog';
+import {matchedCatalogSources} from '@/lib/catalog-display-sources';
 import type {FeedbackContext} from '@/lib/feedback';
 
 type Source = { storeId: string; url: string; sourceCategory: string; name?:string };
@@ -234,7 +235,7 @@ export function MerchantCatalog({
     // title read from this card's own merchant page is the authoritative key.
     const anchor=row.sources.map(source=>previews[source.url]).find(preview=>preview?.name && preview.key && preview.price);
     if(!anchor) return row;
-    const sources=[...row.sources,...(anchor.sources || []).map(source=>({...source,sourceCategory:row.group}))];
+    const sources=matchedCatalogSources([...row.sources,...(anchor.sources || []).map(source=>({...source,sourceCategory:row.group}))],anchor.key,previews);
     return {...row,key:anchor.key,name:anchor.name,shortName:anchor.name,
       sources:[...new Map(sources.map(source=>[source.url,source])).values()]};
   };

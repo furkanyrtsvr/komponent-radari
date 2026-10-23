@@ -2,6 +2,15 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {productIdentity,catalogQuery} from '../public/catalog/product-identity.js';
+import {matchedCatalogSources} from '../src/lib/catalog-display-sources';
+
+test('a development board never displays loose-chip discovery candidates as its merchant counterparts',()=>{
+ const board='STM32F103C6T6A Geliştirme Kartı',key=productIdentity({name:board});
+ const sources=[{url:'https://a.test/board',name:board},{url:'https://b.test/chip',name:'STM32F103C6T6A STMicroelectronics Mikrodenetleyici IC'},{url:'https://c.test/chip',name:'STM32F103C6T6A 48 LQFP Mikrodenetleyici ARM'},{url:'https://d.test/other',name:'STM32F103C6T6 Geliştirme Kartı'}];
+ assert.deepEqual(matchedCatalogSources(sources,key,{}).map(s=>s.url),['https://a.test/board']);
+ const observed={'https://a.test/board':{key:'contradicted'},'https://d.test/other':{key}};
+ assert.deepEqual(matchedCatalogSources(sources,key,observed).map(s=>s.url),['https://d.test/other']);
+});
 
 test('model family retrieval is broader than identity, while numeric technical values stay exact',()=>{
  for(const [query,name] of [['stm32','STM32F103C6T6A Geliştirme Kartı'],['STM32F103C6T6','STM32F103C6T6A Geliştirme Kartı'],['esp32','ESP32S3 Geliştirme Kartı']])assert.equal(catalogQuery(query)(name),true,query);
