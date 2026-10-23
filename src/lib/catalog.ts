@@ -388,7 +388,7 @@ export const demoOffers: Offer[] = rows.flatMap(
         package_quantity: packageQuantity,
         unit_price: Math.round(gross / packageQuantity),
         currency: "TRY",
-        vat_included: si % 2,
+        vat_included: 1,
         stock_status: (pi + si) % 17 === 16 ? "out_of_stock" : "in_stock",
         stock_quantity: (pi + si) % 17 === 16 ? 0 : 1000,
         match_confidence: 100,

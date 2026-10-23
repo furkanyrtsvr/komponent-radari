@@ -2,6 +2,12 @@
 
 B modu, son 12 saat içinde doğrulanan fiyatları kullanır. Arşivde kayıt yoksa canlı okuma denenir; başarısızlık fiyat veya güncel tarih üretilerek kapatılmaz.
 
+## Veriler nerede tutuluyor?
+
+Yayımlanan sitenin B arşivi ortak sunucu veritabanındadır; ziyaretçilerin bilgisayarlarında ayrı arşivler oluşturulup sonradan birleştirilmez. Sunucunun mağaza okuyucusuyla doğruladığı kullanıcı sorguları ve GitHub toplayıcısının doğrulanmış gözlemleri aynı `catalog_snapshots` tablosuna yazılır. Daha yeni gözlem korunur; geç gelen eski kayıt fiyatı veya kontrol tarihini değiştiremez.
+
+Tarayıcı kendi başına bütün mağazaları taramaz. Otomatik GitHub görevi site kapalıyken de çalışabilir; görev zamanlaması tam başlama saati garantisi değildir. A/B seçimi tarayıcıya aittir, fiyat arşivi ortaktır. Ortak arşiv kullanmak kişisel sepetleri birleştirmez. Toplayıcının yerel SQLite dosyası GitHub görevinin çalışma kuyruğudur; ziyaretçinin bilgisayarında kurulmuş bir görev değildir. Dışarıdan arşive veri göndermek için toplayıcı sırrı gerekir; ziyaretçinin bildirdiği ham fiyat doğrudan güvenilir fiyat kabul edilmez.
+
 ## Otomatik toplama
 
 GitHub `Collect merchant price archive` iş akışı her saatin 13. ve 43. dakikasında çalışır. SQLite kuyruğu Actions önbelleğinde saklanır; sonraki çalışma kaldığı yerden devam eder. Her tur mağaza başına en fazla 20 sayfa okur. Bilinen fiyatların yenilenmesi ve henüz okunmamış adresler için ayrı kapasite ayrılır; yeni ürünler eski fiyat kuyruğunun arkasında süresiz kalmaz.

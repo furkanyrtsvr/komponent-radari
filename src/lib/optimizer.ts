@@ -51,8 +51,8 @@ export function optimize(
           (o) =>
             o.canonical_product_id === item.canonical_product_id &&
             index.has(o.store_id) &&
-            o.currency === "TRY" &&
-            (isFresh(o) || Boolean(options.allowLastKnown && hasObservedPrice(o))) &&
+            hasObservedPrice(o) &&
+            (isFresh(o) || Boolean(options.allowLastKnown)) &&
             o.stock_status === "in_stock" &&
             ((o.match_type === "exact" && o.match_confidence === 100) ||
               (!options.exactOnly &&

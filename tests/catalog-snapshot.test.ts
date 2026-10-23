@@ -4,6 +4,9 @@ import {snapshotUsable,validateSnapshot,snapshotProduct,SNAPSHOT_TTL_MS,SNAPSHOT
 import {DatabaseSync} from 'node:sqlite';
 import {isFresh,quoteOffer,LIVE_TTL_MS} from '../src/lib/pricing';
 import {demoOffers} from '../src/lib/catalog';
+import {mkdtempSync,rmSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
 const at=Date.parse('2026-10-03T12:00:00.000Z');
 const record={storeId:'robotzade',checkedAt:'2026-10-03T11:00:00.000Z',product:{url:'https://www.robotzade.com/urun/hc-sr04-ultrasonik-sensor',name:'HC-SR04 Ultrasonik Sensör',mpn:'HC-SR04',model:'HC-SR04',manufacturer:'',image:null,price:3900,currency:'TRY',vatIncluded:true,vatRate:20,packageQuantity:1,stockStatus:'in_stock',stockQuantity:5,specifications:'{}',warnings:[],quantityVerified:true,minimumOrderQuantity:1,orderStep:1}};
 const stores=[{id:'robotzade',domain:'www.robotzade.com'}];
@@ -26,4 +29,22 @@ test('legacy IdeaSoft correction preserves the actual price/stock time and does 
  const fixed=upgradeSnapshotReader(input)!;assert.equal(fixed.checkedAt,record.checkedAt);assert.equal(fixed.product.price,3900);assert.equal(fixed.product.minimumOrderQuantity,1);assert.equal(fixed.product.orderStep,1);assert.equal(fixed.product.stockQuantity,541);
  assert.equal(upgradeSnapshotReader({...input,product:{...input.product,warnings:[]}}),undefined);
  assert.equal(upgradeSnapshotReader(fixed),fixed);
+});
+
+test('independent database clients share observations; delayed uploads cannot replace newer prices or renew dates',()=>{
+ const folder=mkdtempSync(join(tmpdir(),'komponent-shared-'));
+ const a=new DatabaseSync(join(folder,'archive.sqlite')),b=new DatabaseSync(join(folder,'archive.sqlite'));
+ try{
+  a.exec('CREATE TABLE catalog_snapshots(id TEXT,store_id TEXT,url TEXT,checked_at TEXT,payload TEXT,UNIQUE(store_id,url))');
+  const write=(db:DatabaseSync,r:any)=>db.prepare(SNAPSHOT_UPSERT_SQL).run('record',r.storeId,r.product.url,r.checkedAt,JSON.stringify(r));
+  const read=(db:DatabaseSync)=>db.prepare('SELECT * FROM catalog_snapshots').get() as any;
+  write(a,record);assert.equal(read(b).checked_at,record.checkedAt);
+  const newer={...record,checkedAt:'2026-10-03T11:01:00.000Z',product:{...record.product,price:4100}};
+  write(b,newer);write(a,record);
+  assert.deepEqual(read(a),read(b));assert.equal(JSON.parse(read(a).payload).product.price,4100);
+  assert.equal(read(a).checked_at,newer.checkedAt);
+  const view=snapshotProduct(JSON.parse(read(b).payload));
+  assert.equal(view.checkedAt,newer.checkedAt);
+  assert.equal(snapshotUsable(view.checkedAt!,SNAPSHOT_TTL_MS,Date.parse(newer.checkedAt)+SNAPSHOT_TTL_MS),false);
+ }finally{a.close();b.close();rmSync(folder,{recursive:true,force:true});}
 });

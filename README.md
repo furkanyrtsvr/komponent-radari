@@ -139,6 +139,8 @@ Paket kaynak kodunu, bağımlılık kilidini, mağaza adres dizinini, testleri v
 
 23 Ekim 2026: [Metre, paket ve Özdisan doğrulama düzeltmeleri](docs/BIRIMLER_2026-10-23.md).
 
+23 Ekim 2026 doğruluk denetimi: 214 otomatik test; 2.500 miktar, 1.500 KDV ve 180 kapsamlı küçük sepet karşılaştırması. [Düzeltilen açıklar ve sınırlar](docs/DOGRULUK_2026-10-23.md) · [B arşivi nerede tutulur?](docs/B_FIYAT_ARSIVI.md).
+
 ## Otomatik sürümler
 
 [GitHub Release akışı](docs/SURUMLEME.md), main dalına gönderilen değişiklikleri test ve derlemeden sonra sürümler. İlk aktarım yerel kaynağın cc5b940117f6b9bb6a502db8862f387dad57303b commit görüntüsünden hazırlanmıştır.

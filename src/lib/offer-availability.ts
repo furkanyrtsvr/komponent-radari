@@ -6,11 +6,12 @@ export function offerAvailability(offers:Offer[],quantity=1,options:{stores?:str
  const selected=offers.filter(o=>!o.excluded&&!o.variant_conflict&&(!options.stores||options.stores.includes(o.store_id))&&(!options.exact||o.match_confidence===100));
  const quote=(o:Offer)=>quoteOffer(o,quantity);
  const enough=(o:Offer)=>o.stock_quantity===null||o.stock_quantity>=quote(o).purchasedQuantity;
- const fresh=selected.filter(o=>isFresh(o,options.at)&&o.price_gross>0&&Number.isFinite(quote(o).cost));
- const usable=options.allowLastKnown?selected.filter(o=>hasObservedPrice(o,options.at)&&Number.isFinite(quote(o).cost)):fresh;
+ const valid=selected.filter(o=>hasObservedPrice(o,options.at)&&Number.isSafeInteger(quote(o).cost)&&quote(o).cost>0);
+ const fresh=valid.filter(o=>isFresh(o,options.at));
+ const usable=options.allowLastKnown?valid:fresh;
  const available=usable.filter(o=>o.stock_status==='in_stock'&&enough(o)).sort((a,b)=>quote(a).cost-quote(b).cost || Date.parse(b.last_checked_at)-Date.parse(a.last_checked_at));
  if(available[0]){const current=isFresh(available[0],options.at);return {price:quote(available[0]).cost,label:current?'Stokta':'Son alınan fiyat',note:current?'KDV dahil':`KDV dahil · son kontrol ${new Date(available[0].last_checked_at).toLocaleString('tr-TR')}`,offer:available[0]};}
- const previous=selected.filter(o=>o.price_gross>0&&!o.last_error&&o.stock_status==='in_stock'&&enough(o)&&Number.isFinite(quote(o).cost)&&Date.parse(o.last_checked_at)<=(options.at??Date.now())).sort((a,b)=>Date.parse(b.last_checked_at)-Date.parse(a.last_checked_at));
+ const previous=valid.filter(o=>o.stock_status==='in_stock'&&enough(o)).sort((a,b)=>Date.parse(b.last_checked_at)-Date.parse(a.last_checked_at));
  if(previous[0])return {price:null,previousPrice:quote(previous[0]).cost,label:options.refreshing?'Fiyat yenileniyor':'Güncelleme gerekli',note:'Son doğrulanmış fiyat; güncel sepet hesabına henüz dahil değil',offer:previous[0]};
  if(!selected.length)return {price:null,label:offers.length?(offers.every(o=>o.variant_conflict)?'Farklı varyant bulundu':'Filtre dışında'):options.refreshing?'Kontrol ediliyor':'Henüz doğrulanmadı',note:offers.length?'Mağaza seçimi, eşleşme filtresi veya ürün varyantını kontrol edin':'Mağaza fiyatı ve stok durumu kontrol edilmeli'};
  if(fresh.some(o=>o.stock_status==='in_stock'))return {price:null,label:'Adet için stok yetersiz',note:'İhtiyaç adedi, satış paketi veya minimum sipariş stoktan fazla'};
