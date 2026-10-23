@@ -1,8 +1,9 @@
 import type { Store } from "../domain";
 import { HttpError, list } from "./db";
 import { adapterFor } from "../../stores/registry";
-import {readProduct,pricePhase} from './snapshots';
-import {snapshotUsable,SNAPSHOT_TTL_MS} from '../catalog-snapshot';
+import {readProduct,pricePhase,snapshotSources} from './snapshots';
+import {archivePreviews} from '../archive-preview';
+import {snapshotUsable} from '../catalog-snapshot';
 import {LIVE_TTL_MS} from '../pricing';
 import { catalogIdentity } from "../catalog-identity";
 import { isRetryableStoreError } from "../../stores/base";
@@ -25,6 +26,7 @@ export type CatalogPreview = {
   unitType?:import("../sales-unit").SalesUnit;
   maxAgeMs?:number;
   sources?:{storeId:string;url:string;name:string}[];
+  archiveState?:'fresh'|'missing'|'expired'|'invalid';
 };
 
 const cache = new Map<string, {at:number; value:Promise<CatalogPreview>}>();
@@ -32,6 +34,7 @@ const cache = new Map<string, {at:number; value:Promise<CatalogPreview>}>();
 export async function previewCatalogProducts(urls: string[], force = false) {
   const phase=await pricePhase();
   const stores = await list<Store>("stores");
+  if(phase==='B')return archivePreviews(urls,stores,snapshotSources);
   const unique = [...new Set(urls)].slice(0, 12);
   const results = await Promise.allSettled(
     unique.map(async (url): Promise<CatalogPreview> => {
@@ -67,7 +70,7 @@ export async function previewCatalogProducts(urls: string[], force = false) {
           image:product?.image?.startsWith("https://") ? product.image : null,
           price:verified ? product!.price : null, stockStatus:product?.stockStatus || "unknown",
           checkedAt:product?.checkedAt || new Date().toISOString(), packageQuantity:product?.packageQuantity || 1,unitType:product?.unitType,
-          maxAgeMs:product?.collectorManaged?COLLECTOR_TTL_MS:product?.readMethod==='snapshot'?(phase==='B'?SNAPSHOT_TTL_MS:LIVE_TTL_MS):5*60*1000,
+          maxAgeMs:product?.collectorManaged?COLLECTOR_TTL_MS:product?.readMethod==='snapshot'?LIVE_TTL_MS:5*60*1000,
           collectorManaged:usesCollector(store.id),collectorPending:product?.collectorPending??collectorPending,
           sources:product ? catalogueSources(product) : [],
           retained:Boolean(product?.readWarning),

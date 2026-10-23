@@ -14,6 +14,8 @@ import {visualMatches} from '@/lib/server/visual-match';
 import {nameMatchScore} from '@/public/catalog/product-identity.js';
 import {cartEvents} from "@/lib/server/cart-events";
 import { previewCatalogProducts } from "@/lib/server/catalog-preview";
+import {pricePhase} from '@/lib/server/snapshots';
+import {ARCHIVE_PREVIEW_BATCH} from '@/lib/archive-preview';
 import { createLiveStarter } from "@/lib/server/carts";
 import { z } from "zod";
 import { user, isAdmin, requireAdmin, checkOrigin } from "@/lib/server/auth";
@@ -145,7 +147,7 @@ async function handle(request: Request, context: Context) {
     }
     if (route === "catalog/preview" && method === "POST") {
       await rateLimit("catalog-preview:" + u.id, 60);
-      const urls = z.array(z.string().url().max(2000)).min(1).max(12).parse(body.urls);
+      const urls = z.array(z.string().url().max(2000)).min(1).max(await pricePhase()==='B'?ARCHIVE_PREVIEW_BATCH:12).parse(body.urls);
       return Response.json(await previewCatalogProducts(urls, body.force === true));
     }
     if (route === "bootstrap") {
@@ -176,6 +178,7 @@ async function handle(request: Request, context: Context) {
       return Response.json({
         user: { id: u.id, name: u.display_name, admin: isAdmin(u),email:u.email,authenticated:Boolean(u.email) },
         demo: source === "demo",
+        pricePhase:await pricePhase(),
         products,
         offers,
         stores:applyCartShipping(stores,cart.shippingSettings || []),

@@ -1,6 +1,8 @@
 # B hızlı fiyat arşivi
 
-B modu, son 12 saat içinde doğrulanan fiyatları kullanır. Arşivde kayıt yoksa canlı okuma denenir; başarısızlık fiyat veya güncel tarih üretilerek kapatılmaz.
+B modu, son 12 saat içinde doğrulanan fiyatları kullanır. **Ürün keşfet**, fiyatları ortak veritabanından 120 bağlantıya kadar toplu sorgularla okur; canlı mağaza isteği veya toplayıcı yenileme işi başlatmaz. Aynı mağazanın ürünleri için canlı okumanın bekleme aralığı uygulanmaz. Kayıt yoksa, eskiyse veya doğrulanamıyorsa fiyat boş kalır ve nedeni belirtilir. “Arşivi yeniden oku” yalnız veritabanını tekrar okur; eski fiyatın kontrol tarihi yenilenmez.
+
+Bu kural Ürün keşfet fiyat önizlemelerine aittir. Bağlantıdan karşılaştırma ve sepete ekleme işlemleri gerektiğinde ayrı ürün doğrulama akışını çalıştırabilir. Otomatik toplayıcı arşivi arka planda güncellemeye devam eder.
 
 ## Veriler nerede tutuluyor?
 

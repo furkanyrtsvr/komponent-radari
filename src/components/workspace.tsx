@@ -108,6 +108,7 @@ import { csvCell } from "@/lib/bom";
 type Boot = {
   user: { id: string; name: string; admin: boolean;email:string;authenticated:boolean };
   demo: boolean;
+  pricePhase:'A'|'B';
   products: Product[];
   offers: Offer[];
   stores: Store[];
@@ -1709,7 +1710,7 @@ export default function Workspace({
               )}
               {(view === "catalog" || view === "favorites") && (
                 <section className="catalog-section">
-                  {view === "catalog" && !data.demo && <MerchantCatalog query={query} stores={data.stores} offers={data.offers} busy={!!busy} onAdd={addIndexedProduct} onReport={setFeedbackContext} />}
+                  {view === "catalog" && !data.demo && <MerchantCatalog phase={data.pricePhase} query={query} stores={data.stores} offers={data.offers} busy={!!busy} onAdd={addIndexedProduct} onReport={setFeedbackContext} />}
                   {(view === "favorites" || data.demo) && <>
                   <h2 className="catalog-verified-title">{view === "favorites" ? "Favorilerim" : "Demo ürünleri"}</h2>
                   <div className="filter-row">

@@ -73,7 +73,7 @@ Adres: `http://localhost:5173`. Misafir oturumu için harici anahtar gerekmez. P
 
 ## A/B fiyat akışları
 
-**A**, önce 20 dakikalık doğrulanmış kaydı kullanır; gerekli olduğunda canlı okumayı dener. **B**, önce 12 saatlik arşivi kullanır. Başarısız yeni okumada önceki fiyatın tarihi değiştirilmez. Bilinmeyen stok, stokta var diye sunulmaz; stok dışı teklif satın alma planına girmez.
+**A**, önce 20 dakikalık doğrulanmış kaydı kullanır; gerekli olduğunda canlı okumayı dener. **B**, 12 saatlik arşivi kullanır; Ürün keşfet fiyatlarını topluca yalnız ortak veritabanından okur. Eksik kayıt için canlı mağaza kontrolü başlatılmaz. Arşivden okuma önceki fiyatın tarihini değiştirmez. Bağlantıdan karşılaştırma ve sepete ekleme ayrı doğrulama akışlarıdır. Bilinmeyen stok, stokta var diye sunulmaz; stok dışı teklif satın alma planına girmez.
 
 B toplayıcısı SQLite kuyruğunda ilerler. Bilinen fiyatlara ve sepet bağlantılarına öncelik veren Windows komutu:
 

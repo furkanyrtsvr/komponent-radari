@@ -22,7 +22,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { api,ApiError } from "@/lib/client";
-import {previewWait} from '@/lib/preview-schedule';
+import {previewWait,previewBatch} from '@/lib/preview-schedule';
 import type { Offer, Store } from "@/lib/domain";
 import { money } from "@/lib/domain";
 import { hasObservedPrice, isFresh } from "@/lib/pricing";
@@ -105,6 +105,7 @@ function ProductVisual({
 }
 
 export function MerchantCatalog({
+  phase,
   query,
   stores,
   offers,
@@ -112,6 +113,7 @@ export function MerchantCatalog({
   busy,
   onReport,
 }: {
+  phase:'A'|'B';
   query: string;
   stores: Store[];
   offers: Offer[];
@@ -194,15 +196,11 @@ export function MerchantCatalog({
 
   useEffect(() => {
     if (previewPending.current) return;
-    const delay=previewWait(previewStarted.current,previewBlockedUntil.current);
+    const delay=phase==='B'?Math.max(0,previewBlockedUntil.current-Date.now()):previewWait(previewStarted.current,previewBlockedUntil.current);
     if(delay){const timer=setTimeout(()=>setPreviewRevision(current=>current+1),delay);return()=>clearTimeout(timer);}
-    const urls = [...(selectedProduct?.sources.map(source => source.url) || []), ...rows
+    const urls = previewBatch([...(selectedProduct?.sources.map(source => source.url) || []), ...rows
       .slice(0, 40)
-      .flatMap(row => row.sources.map(source=>source.url))]
-      .filter((url): url is string => Boolean(url))
-      .filter((url) => !attemptedPreviews.current.has(url))
-      .filter((url,index,all)=>all.findIndex(other=>new URL(other).hostname===new URL(url).hostname)===index)
-      .slice(0, 4);
+      .flatMap(row => row.sources.map(source=>source.url))],attemptedPreviews.current,phase);
     if (!urls.length) return;
     previewPending.current = true;
     previewStarted.current=Date.now();
@@ -226,7 +224,7 @@ export function MerchantCatalog({
         previewPending.current = false;
         if (previewLive.current) setPreviewRevision(current => current + 1);
       });
-  }, [rows, previews, selected, previewRevision, failedImages]);
+  }, [rows, previews, selected, previewRevision, failedImages,phase]);
 
   const sourceStore = (id: string) =>
     stores.find((candidate) => candidate.id === id)?.name || id;
@@ -246,6 +244,7 @@ export function MerchantCatalog({
       const p=previews[source.url];
       if(p?.key===row.key && p.price && p.stockStatus==='in_stock' && previewObserved(p)) return p.price;
       if(p?.price && previewObserved(p)) return Infinity;
+      if(phase==='B')return Infinity;
       const offer=offers.find(o=>o.product_url===source.url && catalogIdentity({name:o.title})===row.key && isFresh(o) && o.stock_status==='in_stock');
       return offer?.price_gross || Infinity;
     };
@@ -256,6 +255,7 @@ export function MerchantCatalog({
     const preview = previews[url];
     if (preview?.key === key && preview.price && preview.stockStatus === "in_stock" && previewObserved(preview)) return money(preview.price);
     if (preview?.price && previewObserved(preview)) return null;
+    if(phase==='B')return null;
     const offer = offers.find(
       (candidate) =>
         candidate.product_url === url &&
@@ -286,6 +286,7 @@ export function MerchantCatalog({
               ? `${manifest.total.toLocaleString("tr-TR")} mağaza kaydı · ${manifest.stores.length} mağaza`
               : "Katalog yükleniyor…"}
           </p>
+          {phase==='B'&&<p>Fiyatlar ortak arşivden okunur; bu ekranda canlı mağaza kontrolü yapılmaz. Son kontrol tarihi korunur.</p>}
         </div>
         <label>
           Mağaza
@@ -396,7 +397,7 @@ export function MerchantCatalog({
               if(prices.length)return [...new Set(prices.map(p=>p.unitType==='metre'?'metre':row.key.startsWith('cable:jumper:')?'set':'adet'))].map(unit=>`${money(Math.min(...prices.filter(p=>(p.unitType==='metre'?'metre':row.key.startsWith('cable:jumper:')?'set':'adet')===unit).map(p=>Math.round(p.price!/(p.packageQuantity||1)))))} / ${unit}`).join(' · ');
               const soldOut=row.sources.map(source=>previews[source.url]).filter(p=>p?.key===row.key&&p.stockStatus==='out_of_stock'&&previewObserved(p));
               if(soldOut.length)return `${money(Math.min(...soldOut.map(p=>Math.round(p.price!/(p.packageQuantity||1)))))} · Stokta yok`;
-              return row.sources.every(source=>attemptedPreviews.current.has(source.url)&&previews[source.url]) ? 'Fiyat doğrulanamadı' : 'Fiyatlar kontrol ediliyor…';
+              return row.sources.every(source=>attemptedPreviews.current.has(source.url)&&previews[source.url]) ? phase==='B'?'Arşivde kullanılabilir fiyat yok':'Fiyat doğrulanamadı' : phase==='B'?'Arşiv okunuyor…':'Fiyatlar kontrol ediliyor…';
             })()}</p>
           </button>
         );})}
@@ -471,10 +472,10 @@ export function MerchantCatalog({
                       </a>
                       <span title={previews[source.url]?.message || undefined}>
                         {checkedPrice(source.url,selectedProduct.key) || (previews[source.url]
-                          ? previews[source.url].key && previews[source.url].key !== selectedProduct.key ? "Ürün bilgisi eşleşmedi" : previews[source.url].collectorPending ? "Toplayıcı yenilemesi bekleniyor" : previews[source.url].stockStatus === "out_of_stock" ? "Stokta yok" : "Fiyat doğrulanamadı"
-                          : "Mağaza kontrol ediliyor…")}
+                          ? previews[source.url].key && previews[source.url].key !== selectedProduct.key ? "Ürün bilgisi eşleşmedi" : previews[source.url].archiveState==='missing' ? 'Arşivde kayıt yok' : previews[source.url].archiveState==='expired' ? 'Arşiv kaydı eski' : previews[source.url].collectorPending ? "Toplayıcı yenilemesi bekleniyor" : previews[source.url].stockStatus === "out_of_stock" ? "Stokta yok" : "Fiyat doğrulanamadı"
+                          : phase==='B'?'Arşiv okunuyor…':"Mağaza kontrol ediliyor…")}
                         {checkedPrice(source.url,selectedProduct.key) ? previews[source.url]?.unitType==='metre' ? " / metre · KDV dahil" : selectedProduct.key.startsWith("cable:jumper:") ? " / set · KDV dahil" : ` / ${previews[source.url]?.packageQuantity && previews[source.url].packageQuantity!>1 ? `${previews[source.url].packageQuantity} adetlik paket` : "adet"} · KDV dahil` : ""}
-                        {previews[source.url]?.collectorManaged ? " · Toplayıcı arşivi" : previews[source.url]?.retained ? " · son doğrulanan fiyat" : ""}
+                        {previews[source.url]?.archiveState==='fresh' ? ' · Arşiv' : previews[source.url]?.collectorManaged ? " · Toplayıcı arşivi" : previews[source.url]?.retained ? " · son doğrulanan fiyat" : ""}
                         {checkedPrice(source.url,selectedProduct.key) && <small>Son kontrol · {new Date(previews[source.url]?.checkedAt || offers.find(o=>o.product_url===source.url)?.last_checked_at || '').toLocaleString('tr-TR')}</small>}
                       </span>
                       {previews[source.url]?.message && !checkedPrice(source.url,selectedProduct.key) && <small>{previews[source.url].message}</small>}
@@ -487,7 +488,7 @@ export function MerchantCatalog({
                 selectedProduct.sources.forEach(source=>forcePreviewUrls.current.add(source.url));
                 setPreviews(current => Object.fromEntries(Object.entries(current).filter(([url]) => !selectedProduct.sources.some(source => source.url === url))));
                 setPreviewRevision(current => current + 1);
-              }}>Teklifleri yenile</button>
+              }}>{phase==='B'?'Arşivi yeniden oku':'Teklifleri yenile'}</button>
               <button
                 className="merchant-dialog-add"
                 disabled={busy}
