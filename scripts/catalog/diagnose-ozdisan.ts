@@ -10,9 +10,11 @@ for(const [i,url] of urls.entries()){
  try{const page=await new Probe({id:'ozdisan',domain:'www.ozdisan.com'}).page(url),$=load(page.html);
  let result;try{const p=parseOzdisanProduct(page.html,page.url);result={price:p.price,minimum:p.minimumOrderQuantity,step:p.orderStep};}catch(e){result={error:String(e)};process.exitCode=1;}
  const cards=$('[class*="tape-card-container"]');
- const summary={url:page.url,lang:$('html').attr('lang'),title:$('h1').text(),cards:cards.length,cardText:cards.text().slice(0,8000),result};
+ const state=JSON.parse($('#__NEXT_DATA__').text()||'{}').props?.pageProps;
+ const publicPricing=state?{initialPrice:state.initialPrice,data:state.data,settings:state.initialState?.settings?.data}:null;
+ const summary={publicPricing,url:page.url,lang:$('html').attr('lang'),title:$('h1').text(),cards:cards.length,cardText:cards.text().slice(0,8000),result};
  // Only public product evidence; no HTTP headers, cookies or account data.
- const scripts=$('script[type="application/ld+json"]').toArray().map(e=>$.html(e)).join('\n');
+ const scripts=$('script[type="application/ld+json"]').toArray().map(e=>$.html(e)).join('\n')+`<script id="__NEXT_DATA__" type="application/json">${JSON.stringify({props:{pageProps:publicPricing}}).replaceAll("<","\\u003c")}</script>`;
  const bodyText=$('body').clone().find('script,style').remove().end().text();
  const moq=bodyText.match(/MOQ:\s*[\d,]+/)?.[0]||'',multiple=bodyText.match(/Multiple:\s*[\d,]+/)?.[0]||'';
  writeFileSync(`${dir}/${i}.html`,`<html lang="${summary.lang}"><head>${scripts}</head><body>${$('h1').first().toString()}<p>${moq} ${multiple}</p>${cards.toArray().map(e=>$.html(e)).join('\n')}</body></html>`);
