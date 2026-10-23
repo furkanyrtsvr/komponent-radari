@@ -45,6 +45,7 @@ Uygulama yerelde çalıştırılarak alınan dört ekran görüntüsü.
 - Kalıcı sepetler, miktar düzenleme, CSV/XLSX BOM içe aktarma, paylaşım rolleri ve ortak sepet değişiklikleri.
 - Üyelik, favoriler, fiyat geçmişi, fiyat/stok takibi ve işlem kayıtları.
 - A canlı fiyat akışı ve B tarihli fiyat arşivi arasında geçiş; kategori bazında Excel dışa aktarımı.
+- Karşılaştırma sonuçlarını seçerek hata bildirme; özel geri bildirim konuşmaları, yönetici yanıtları ve inceleme durumları. [Geri bildirim rehberi](docs/GERI_BILDIRIM.md).
 
 ## Mağazalar
 
@@ -61,7 +62,7 @@ npm run install:ci
 npm run build
 ```
 
-İlk yerel veritabanına [kurulum rehberindeki](docs/KURULUM.md) **yedi SQL geçişini** sırayla uygulayın. Sonra:
+İlk yerel veritabanına [kurulum rehberindeki](docs/KURULUM.md) **sekiz SQL geçişini** sırayla uygulayın. Sonra:
 
 ```sh
 npm run dev

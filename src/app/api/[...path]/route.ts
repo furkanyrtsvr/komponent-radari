@@ -1,4 +1,6 @@
 import { cookies } from "next/headers";
+import {ensureFeedback,feedbackFor} from '@/lib/server/feedback';
+import {FeedbackError} from '@/lib/feedback-service';
 import { dataSource, storesForSource } from "@/lib/server/mode";
 import { syncLive, searchLive } from "@/lib/server/live";
 import { importCatalogBundle } from "@/lib/server/catalog-import";
@@ -91,6 +93,24 @@ async function handle(request: Request, context: Context) {
       body = JSON.parse(raw || "{}");
     }
     const source = await dataSource();
+    if(path[0]==='feedback'){
+      await ensureFeedback();const service=feedbackFor(u);
+      if(path.length===1&&method==='GET')return Response.json(await service.list(new URL(request.url).searchParams.get('scope')==='all'));
+      if(path.length===1&&method==='POST'){
+        await rateLimit('feedback-create:'+u.id,8);
+        return Response.json(await service.create(body),{status:201});
+      }
+      if(path[1]){
+        const reportId=z.string().uuid().parse(path[1]);
+        if(path.length===2&&method==='GET')return Response.json(await service.detail(reportId));
+        if(path.length===3&&path[2]==='messages'&&method==='POST'){
+          await rateLimit('feedback-message:'+u.id,30);
+          return Response.json(await service.reply(reportId,body),{status:201});
+        }
+        if(path.length===2&&method==='PATCH')return Response.json(await service.status(reportId,z.enum(['open','reviewing','resolved']).parse(body.status)));
+      }
+      throw new HttpError(404,'İşlem bulunamadı.');
+    }
     if (route === "mode" && method === "POST") {
       const mode = z.enum(["live", "demo"]).parse(body.mode);
       if(mode==="demo" && config("ENABLE_TEST_DATA")!=="true")throw new HttpError(400,"Uygulama yalnızca gerçek mağaza verilerini kullanır.");
@@ -619,7 +639,7 @@ async function handle(request: Request, context: Context) {
         },
         { status: 400 },
       );
-    if (error instanceof HttpError)
+    if (error instanceof HttpError || error instanceof FeedbackError)
       return Response.json({ error: error.message }, { status: error.status });
     if (error instanceof SyntaxError)
       return Response.json({ error: "Geçersiz JSON." }, { status: 400 });

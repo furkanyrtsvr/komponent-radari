@@ -19,7 +19,8 @@ $migrations = @(
   'drizzle/0003_even_thanos.sql',
   'drizzle/0004_tense_pepper_potts.sql',
   'drizzle/0005_absent_meltdown.sql',
-  'drizzle/0006_catalog_collection_runs.sql'
+  'drizzle/0006_catalog_collection_runs.sql',
+  'drizzle/0007_feedback.sql'
 )
 foreach ($migration in $migrations) {
   node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file $migration
@@ -31,7 +32,7 @@ npm run dev
 Bash:
 
 ```sh
-for migration in drizzle/000[0-6]_*.sql; do
+for migration in drizzle/000[0-7]_*.sql; do
   node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file "$migration" || exit 1
 done
 npm run dev
@@ -49,6 +50,7 @@ Adres `http://localhost:5173`. Yerel misafir D1 akışı harici anahtar istemez.
 | `SUPABASE_ANON_KEY` | Supabase Auth istemci ayarı |
 | `SUPABASE_SERVICE_ROLE_KEY` | Yalnız sunucuda hizmet anahtarı |
 | `ADMIN_USER_IDS` | Virgülle ayrılan uygulama kullanıcı UUID’leri |
+| `ADMIN_USER_EMAILS` | Kimlik sağlayıcısının doğruladığı yönetici e-posta adresleri; misafir/profil alanı kabul edilmez |
 | `CRON_SECRET` | Yetkili `/api/jobs/refresh` isteği |
 | `CATALOG_INGEST_SECRET` | Ayrı B arşivi aktarım anahtarı |
 | `REQUIRE_LOGIN` | `true` ise misafir erişimini kapatır |

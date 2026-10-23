@@ -43,6 +43,8 @@ import {
   Clock3,
   BarChart3,
   ChevronsUpDown,
+  MessageSquare,
+  CircleAlert,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -99,6 +101,9 @@ import { quoteOffer, isFresh,hasObservedPrice } from "@/lib/pricing";
 import {distinctScenarios} from '@/lib/scenario-display';
 import {offerAvailability} from '@/lib/offer-availability';
 import {PricePhase} from './price-phase';
+import {FeedbackPanel,FeedbackComposer} from './feedback-panel';
+import {emptyFeedbackContext,type FeedbackContext} from '@/lib/feedback';
+import {comparisonFeedback} from '@/lib/feedback-comparison';
 import { csvCell } from "@/lib/bom";
 type Boot = {
   user: { id: string; name: string; admin: boolean;email:string;authenticated:boolean };
@@ -113,7 +118,7 @@ type Boot = {
   stockAlerts:Watch[];
 };
 type View =
-  "cart" | "catalog" | "saved" | "stores" | "favorites" | "alerts" | "admin";
+  "cart" | "catalog" | "saved" | "stores" | "favorites" | "alerts" | "admin" | "feedback";
 const labels: Record<View, string> = {
   cart: "Akıllı sepet",
   catalog: "Ürün keşfet",
@@ -122,6 +127,7 @@ const labels: Record<View, string> = {
   favorites: "Favorilerim",
   alerts: "Fiyat / stok takibi",
   admin: "Yönetim",
+  feedback: "Geri bildirim",
 };
 const navs = [
   ["catalog", Search, "Ürün keşfet"],
@@ -130,6 +136,7 @@ const navs = [
   ["favorites", Heart, "Favorilerim"],
   ["alerts", Bell, "Fiyat / stok takibi"],
   ["stores", StoreIcon, "Mağazalar"],
+  ["feedback", MessageSquare, "Geri bildirim"],
 ] as const;
 const timeAgo = (s: string) => {
   const mins = Math.max(
@@ -265,6 +272,8 @@ export default function Workspace({
     alertPrice: "100",
   });
   const [manualAlt, setManualAlt] = useState(false);
+  const [feedbackContext,setFeedbackContext]=useState<FeedbackContext|null>(null);
+  const [feedbackSelected,setFeedbackSelected]=useState<string|null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const latestCart = useRef(cart);
   latestCart.current = cart;
@@ -867,7 +876,7 @@ export default function Workspace({
           </div>
         </header>
         <main className="main-content">
-          <PricePhase/>
+          {view!=='feedback'&&<PricePhase/>}
           {!data || !cart ? (
             <div className="loading-state">
               {error ? (
@@ -921,7 +930,7 @@ export default function Workspace({
                               ? "Tekrar ihtiyaç duyacağın parçalar burada."
                               : view === "alerts"
                                 ? "Hedef fiyatlarını takip et. Bildirimler uygulama içinde gösterilir."
-                                : "Mağaza ve ürün eşleştirme yönetimi."}
+                                : view === "feedback" ? "Hataları bildir, fikirlerini paylaş ve konuşmalarını takip et." : "Mağaza ve ürün eşleştirme yönetimi."}
                   </p>
                 </div>
                 {view === "cart" ? (
@@ -948,7 +957,7 @@ export default function Workspace({
                   </Button>
                 ) : null}
               </div>
-              <form
+              {view!=='feedback'&&<form
                 className="searchbar"
                 onSubmit={(e) => {
                   e.preventDefault();
@@ -970,8 +979,8 @@ export default function Workspace({
                   {busy === "search" ? "Aranıyor…" : "Ürün ara"}{" "}
                   <ArrowRight size={16} />
                 </Button>
-              </form>
-              {!data.demo && (
+              </form>}
+              {!data.demo && view!=='feedback' && (
                 <div className="live-notice">
                   <div>
                     <Activity size={18} />
@@ -997,7 +1006,7 @@ export default function Workspace({
                   </Button>
                 </div>
               )}
-              {data.demo && (
+              {data.demo && view!=='feedback' && (
                 <div className="demo-notice">
                   <Info size={15} />
                   <span>
@@ -1936,6 +1945,7 @@ export default function Workspace({
                 </section>
               )}
               {view === "stores" && cart && <ShippingLogsPanel stores={data.stores} cart={cart} onChange={next=>{setCart(next);changed();void load(false,next.id);}}/>}
+              {view === "feedback" && <FeedbackPanel key={feedbackSelected||'feedback'} admin={data.user.admin} initialId={feedbackSelected} onNew={()=>setFeedbackContext(emptyFeedbackContext())}/>}
               {view === "admin" && <StorePanel stores={data.stores} admin={data.user.admin} onChange={()=>void load()}/>}
               {view === "admin" && data.user.admin && (
                 <AdminTools
@@ -1962,7 +1972,8 @@ export default function Workspace({
       >
         <DialogContent className="app-dialog">
           <DialogHeader>
-            <DialogTitle>
+            <DialogTitle className={modal==='url'?'comparison-dialog-title':undefined}>
+              {modal==='url'&&<button type="button" className="report-comparison-button" title="Bu karşılaştırmada hata bildir" aria-label="Bu karşılaştırmada hata bildir" onClick={()=>setFeedbackContext(comparisonFeedback(urlResult,form.url))}><CircleAlert size={20}/><span>Hata bildir</span></button>}
               {modal === "new"
                 ? "Yeni proje sepeti"
                 : modal === "merge"
@@ -2408,6 +2419,7 @@ export default function Workspace({
           )}
         </DialogContent>
       </Dialog>
+      {feedbackContext&&<FeedbackComposer key={feedbackContext.capturedAt} context={feedbackContext} onClose={()=>setFeedbackContext(null)} onSaved={reportId=>{setFeedbackContext(null);setModal(null);setFeedbackSelected(reportId);setView('feedback');toast.success('Bildirimin kaydedildi. Konuşmaya buradan devam edebilirsin.');}}/>}
     </SidebarProvider>
   );
 }

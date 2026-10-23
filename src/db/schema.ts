@@ -339,3 +339,9 @@ export const cartOfferSelections=sqliteTable('cart_offer_selections',{
   excluded:integer().notNull().default(0),
   updated_at:text().notNull(),
 },t=>[uniqueIndex('cart_offer_selection_unique').on(t.cart_id,t.canonical_product_id,t.offer_id)]);
+export const feedbackReports=sqliteTable('feedback_reports',{
+  id:pk(),user_id:text().notNull().references(()=>users.id),title:text().notNull(),kind:text().notNull(),status:text().notNull(),context:text().notNull(),created_at:text().notNull(),updated_at:text().notNull(),
+},t=>[index('feedback_owner_updated').on(t.user_id,t.updated_at),index('feedback_updated').on(t.updated_at)]);
+export const feedbackMessages=sqliteTable('feedback_messages',{
+  id:pk(),report_id:text().notNull().references(()=>feedbackReports.id),author_id:text().notNull().references(()=>users.id),author_role:text().notNull(),body:text().notNull(),created_at:text().notNull(),
+},t=>[index('feedback_conversation').on(t.report_id,t.created_at)]);

@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import {getChatGPTUser} from "../../app/chatgpt-auth";
 import {accountId} from "../account";
+import {adminIdentity} from '../admin-identity';
 import {
   config,
   one,
@@ -11,6 +12,7 @@ import {
   HttpError,
   binding,
   remove,
+  update,
 } from "./db";
 import { id, now } from "../domain";
 export type User = {
@@ -18,6 +20,7 @@ export type User = {
   display_name: string;
   email: string;
   created_at: string;
+  verified_email?: string;
 };
 export async function user(request: Request): Promise<User> {
   const platform=await getChatGPTUser();
@@ -36,7 +39,7 @@ export async function user(request: Request): Promise<User> {
       await remove("sessions",{id:token});
       (await cookies()).delete("eub_session");
     }
-    return account;
+    return {...account,verified_email:platform.email};
   }
   const bearer = request.headers.get("authorization")?.replace(/^Bearer /, "");
   if (bearer && isSupabase()) {
@@ -53,7 +56,7 @@ export async function user(request: Request): Promise<User> {
       created_at: now(),
     };
     await insert("users", u, true);
-    return u;
+    return {...u,verified_email:data.user.email_confirmed_at?data.user.email:undefined};
   }
   const jar = await cookies();
   const token = jar.get("eub_session")?.value;
@@ -94,10 +97,18 @@ async function claimGuest(guestId:string,userId:string){
   if(isSupabase()){
     const {error}=await supabase().rpc("eub_claim_guest",{p_guest:guestId,p_user:userId});
     if(error)throw error;
+    await update('feedback_reports',{user_id:userId},{user_id:guestId});
+    await update('feedback_messages',{author_id:userId},{author_id:guestId});
     return;
   }
   const db=binding();
+  const feedbackTables=await db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name IN ('feedback_reports','feedback_messages')").all<{name:string}>();
+  const feedbackStatements=feedbackTables.results.length===2?[
+    db.prepare('UPDATE feedback_reports SET user_id=? WHERE user_id=?').bind(userId,guestId),
+    db.prepare('UPDATE feedback_messages SET author_id=? WHERE author_id=?').bind(userId,guestId),
+  ]:[];
   await db.batch([
+    ...feedbackStatements,
     db.prepare("UPDATE cart_members SET role=CASE WHEN role='owner' THEN role WHEN EXISTS(SELECT 1 FROM cart_members g WHERE g.cart_id=cart_members.cart_id AND g.user_id=? AND g.role='owner') THEN 'owner' WHEN role='editor' THEN role WHEN EXISTS(SELECT 1 FROM cart_members g WHERE g.cart_id=cart_members.cart_id AND g.user_id=? AND g.role='editor') THEN 'editor' WHEN role='contributor' THEN role WHEN EXISTS(SELECT 1 FROM cart_members g WHERE g.cart_id=cart_members.cart_id AND g.user_id=? AND g.role='contributor') THEN 'contributor' ELSE role END WHERE user_id=?").bind(guestId,guestId,guestId,userId),
     db.prepare("DELETE FROM cart_members WHERE user_id=? AND cart_id IN(SELECT cart_id FROM cart_members WHERE user_id=?)").bind(guestId,userId),
     db.prepare("UPDATE cart_members SET user_id=? WHERE user_id=?").bind(userId,guestId),
@@ -113,12 +124,11 @@ async function claimGuest(guestId:string,userId:string){
   ]);
 }
 export function requireAdmin(u: User) {
-  const allowed = config("ADMIN_USER_IDS").split(",").filter(Boolean);
-  if (!allowed.includes(u.id))
+  if (!isAdmin(u))
     throw new HttpError(403, "Bu işlem yönetici hesabı gerektirir.");
 }
 export function isAdmin(u: User) {
-  return config("ADMIN_USER_IDS").split(",").includes(u.id);
+  return adminIdentity(u,config('ADMIN_USER_IDS'),config('ADMIN_USER_EMAILS'));
 }
 export function checkOrigin(request: Request) {
   if (request.method === "GET") return;
