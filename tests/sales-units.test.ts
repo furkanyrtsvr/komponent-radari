@@ -40,3 +40,7 @@ test('exact numeric merchant part numbers do not fail fuzzy discovery scoring, w
  assert.equal(parseProduct(html,url).name,'09032967825');assert.throws(()=>parseOzdisanProduct(html,url),/fiyat ve stok talebi/);
  const $=load(html);$('h1').text('09032967845');assert.throws(()=>parseProduct($.html(),url),/Product JSON-LD/);
 });
+
+test('a foreign server TRY view labelled VAT-included is rejected when its totals still equal net prices',()=>{
+ assert.throws(()=>parseOzdisanProduct(fixture('ozdisan-region-vat-conflict'),oz),/KDV dahil toplam fiyatı doğrulanamadı/);
+});
