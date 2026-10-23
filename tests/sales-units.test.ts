@@ -1,3 +1,5 @@
+import{parseProduct}from'../src/stores/base';
+import{load}from'cheerio';
 import{OzdisanAdapter}from'../src/stores/ozdisan';
 import{merchantDisplayPreferences}from'../src/stores/request-preferences';
 import test from 'node:test';import assert from 'node:assert/strict';import{readFileSync}from'node:fs';
@@ -29,6 +31,12 @@ test('Ozdisan accepts current hashed table classes and still rejects VAT and row
 
 test('Ozdisan anonymous reader explicitly requests Turkish TRY/VAT view instead of regional USD defaults',async()=>{
  const original=globalThis.fetch;const headers:Record<string,string>[]=[];
- globalThis.fetch=(async(input:any,init:any)=>{const url=String(input);const h=Object.fromEntries(new Headers(init?.headers).entries());headers.push(h);if(url.endsWith('/robots.txt'))return new Response('User-agent: *\nAllow: /');const setting=decodeURIComponent((h.cookie||'').replace(/^user-settings=/,''));if(setting!==JSON.stringify({languageCode:'tr',currencyCode:'TRY',countryCode:'TR'}))throw new Error('Wrong regional view requested');return new Response(fixture('ozdisan'));}) as typeof fetch;
+ globalThis.fetch=(async(input:any,init:any)=>{const url=String(input);const h=Object.fromEntries(new Headers(init?.headers).entries());headers.push(h);if(url.endsWith('/robots.txt'))return new Response('User-agent: *\nAllow: /');const setting=decodeURIComponent((h.cookie||'').replace(/^user-settings=/,''));const pref=JSON.parse(setting);assert.deepEqual({...pref,timestamp:0},{languageCode:'tr',currencyCode:'TRY',countryCode:'TR',timestamp:0,isAuthenticated:false});assert.ok(Math.abs(Date.now()-pref.timestamp)<10000);return new Response(fixture('ozdisan'));}) as typeof fetch;
  try{const p=await new OzdisanAdapter({id:'ozdisan',domain:'www.ozdisan.com'}).getProduct(oz);assert.equal(p.price,279846);assert.ok(headers.every(h=>!h.authorization));assert.deepEqual(merchantDisplayPreferences('ozdisan.com.example.org'),{});assert.deepEqual(merchantDisplayPreferences('www.robiz.net'),{});}finally{globalThis.fetch=original;}
+});
+
+test('exact numeric merchant part numbers do not fail fuzzy discovery scoring, while different part numbers still fail',()=>{
+ const html=fixture('ozdisan-numeric'),url='https://www.ozdisan.com/p/DIN41612-711/harting-09032967825-1068011';
+ assert.equal(parseProduct(html,url).name,'09032967825');assert.throws(()=>parseOzdisanProduct(html,url),/fiyat ve stok talebi/);
+ const $=load(html);$('h1').text('09032967845');assert.throws(()=>parseProduct($.html(),url),/Product JSON-LD/);
 });

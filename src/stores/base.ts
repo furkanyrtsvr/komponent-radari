@@ -201,7 +201,7 @@ export function parseProduct(html: string, url: string): ExtractedProduct {
   const pageFacts={name:visibleTitle,specifications},metadataFacts={name:String(p.name||''),specifications};
   // Metadata belongs to this URL, but the visible item name is the anchor.
   // Contradictory Product metadata must not attach another item's price.
-  if(visibleTitle && (nameMatchScore(pageFacts,metadataFacts)<.65 || variantConflict(pageFacts,metadataFacts)))
+  if(visibleTitle && ((ascii(pageFacts.name)!==ascii(metadataFacts.name)&&nameMatchScore(pageFacts,metadataFacts)<.65) || variantConflict(pageFacts,metadataFacts)))
     throw new Error('Görünen ürün başlığı ile fiyat verisinin ürün türü veya modeli uyuşmuyor.');
   validateProductFacts(String(p.name || ""),String(p.description || ""),Array.isArray(p.additionalProperty) ? p.additionalProperty : []);
   const rawOffers = p.offers;
