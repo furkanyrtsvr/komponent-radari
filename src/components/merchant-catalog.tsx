@@ -504,7 +504,7 @@ export function MerchantCatalog({
                       >
                         {sourceStore(source.storeId)}
                       </a>
-                      <span title={previews[source.url]?.message || undefined}>
+                      <span className={previews[source.url]&&oldArchivePrice(previews[source.url])?'archive-old-quote':undefined} title={previews[source.url]?.message || undefined}>
                         {checkedPrice(source.url,selectedProduct.key) || (previews[source.url]
                           ? previews[source.url].key && previews[source.url].key !== selectedProduct.key ? "Ürün bilgisi eşleşmedi" : previews[source.url].archiveState==='missing' ? 'Arşivde kayıt yok' : previews[source.url].archiveState==='expired' ? 'Arşiv kaydı eski' : previews[source.url].collectorPending ? "Toplayıcı yenilemesi bekleniyor" : previews[source.url].stockStatus === "out_of_stock" ? "Stokta yok" : "Fiyat doğrulanamadı"
                           : phase==='B'?'Arşiv okunuyor…':"Mağaza kontrol ediliyor…")}
