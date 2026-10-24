@@ -3,6 +3,7 @@ import {z} from 'zod';
 import {storeCatalog} from '@/lib/catalog';
 import {validateSnapshot} from '@/lib/catalog-snapshot';
 import {saveSnapshots} from '@/lib/server/snapshots';
+import {collectorWatchlist} from '@/lib/server/collector-watchlist';
 import {pendingCollectorRequests,failCollectorRequest,completeCollectorRequest} from '@/lib/server/collector-requests';
 export const dynamic='force-dynamic';
 async function authorized(request:Request){
@@ -11,8 +12,8 @@ async function authorized(request:Request){
 }
 export async function GET(request:Request){try{
  await authorized(request);
- const products=await list<{store_id:string;url:string}>('store_products',{},2000);
- return Response.json({requests:await pendingCollectorRequests(),watchlist:products.map(p=>({storeId:p.store_id,url:p.url}))});
+ const [requests,watchlist]=await Promise.all([pendingCollectorRequests(),collectorWatchlist()]);
+ return Response.json({requests,watchlist});
 }catch(e){return Response.json({error:e instanceof Error?e.message:'Hata'},{status:e instanceof HttpError?e.status:500});}}
 export async function POST(request:Request){try{
  await authorized(request);

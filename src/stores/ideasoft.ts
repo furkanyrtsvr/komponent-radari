@@ -1,4 +1,5 @@
 import {ascii} from '../../public/catalog/product-identity.js';
+import {productImage} from './product-image';
 import {load} from 'cheerio';
 import {JsonLdAdapter,parsePrice,safeStoreUrl} from './base';
 import {inlineObject} from './inline-data';
@@ -35,7 +36,7 @@ export function parseIdeasoftProduct(html:string,url:string):ExtractedProduct{
   const description=$('.product-detail-tab-row').first().text().replace(/\s+/g,' ').trim();
   validateProductFacts(name,description,[]);
   const pack=name.match(/\b(\d+)\s*(?:adet|pcs)\b/i);const packageQuantity=pack?Number(pack[1]):1;
-  const rawImage=String(p.primaryImageUrl||'');const image=rawImage?new URL(rawImage,url).href:null;
+  const image=productImage(p.primaryImageUrl,url,$('meta[property="og:image"]').attr('content'));
   return {url,name,mpn:String(p.sku||''),model:'',manufacturer:String(p.brandName||''),image,
     price:gross,priceNet:Math.round(gross/(1+tax/100)),currency:'TRY',vatIncluded:true,vatRate:tax/100,
     packageQuantity,minimumOrderQuantity:minimum*packageQuantity,orderStep:step*packageQuantity,quantityVerified:true,

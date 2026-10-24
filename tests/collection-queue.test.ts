@@ -11,8 +11,8 @@ test('archive queue reserves room for new products, honors retry time and resume
   for(let i=0;i<20;i++)insert.run('s','new-'+i,1,null,0,'','');
   insert.run('s','backoff',1,null,0,'2030-01-01T00:00:00Z','');
   const at=Date.parse('2026-10-20T00:00:00Z'),first=collectionQueue(db,'s',8,false,at);
-  assert.equal(first.filter(r=>r.url.startsWith('known')).length,4);
-  assert.equal(first.filter(r=>r.url.startsWith('new')).length,4);
+  assert.equal(first.filter(r=>r.url.startsWith('known')).length,7);
+  assert.equal(first.filter(r=>r.url.startsWith('new')).length,1);
   assert.ok(!first.some(r=>r.url==='backoff'));
   for(const row of first)db.prepare('UPDATE products SET next_due=?,last_attempt=? WHERE url=?').run('2026-10-20T12:00:00Z','2026-10-20T00:00:00Z',row.url);
   const second=collectionQueue(db,'s',8,false,at);

@@ -22,8 +22,10 @@ test('B reads a same-merchant page in one batch, including misses, without any e
   assert.equal(values[119].archiveState,'missing');assert.equal(values[119].price,null);assert.equal(values[119].checkedAt,'');
  }finally{globalThis.fetch=fetchBefore;}
 });
-test('expiry, future dates and contradictory tax or quantity evidence never show prices or renew dates',async()=>{
- for(const [age,changes,state] of [[SNAPSHOT_TTL_MS,{},'expired'],[-1000,{},'expired'],[1000,{vatIncluded:false},'invalid'],[1000,{quantityVerified:false},'invalid'],[1000,{warnings:[]},'invalid'],[1000,{vatRate:0},'invalid'],[1000,{currency:'USD'},'invalid']] as const){
+test('old verified prices retain their value and date; future or contradictory observations stay hidden',async()=>{
+ const stale=row('p',SNAPSHOT_TTL_MS),[old]=await archivePreviews([stale.url],stores,async()=>[stale],at);
+ assert.equal(old.price,12900);assert.equal(old.archiveState,'expired');assert.equal(old.checkedAt,stale.checked_at);assert.match(old.message,/Eski arşiv fiyatı/);
+ for(const [age,changes,state] of [[-1000,{},'invalid'],[1000,{vatIncluded:false},'invalid'],[1000,{quantityVerified:false},'invalid'],[1000,{warnings:[]},'invalid'],[1000,{vatRate:0},'invalid'],[1000,{currency:'USD'},'invalid']] as const){
   const original=row('p',age,changes),[p]=await archivePreviews([original.url],stores,async()=>[original],at);
   assert.equal(p.archiveState,state);assert.equal(p.price,null);assert.equal(p.checkedAt,original.checked_at);
  }

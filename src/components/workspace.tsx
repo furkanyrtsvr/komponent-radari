@@ -334,6 +334,14 @@ export default function Workspace({
       setError(e instanceof Error ? e.message : "Veriler alınamadı.");
     }
   }
+  async function compareLink(){
+    if(!cart)return;
+    await work('url',async()=>{
+      setUrlResult(null);setModal('url');
+      const found=await api<LinkResult>('url','POST',{url:form.url.trim(),cartId:cart.id,quantity:Number(form.quantity)});
+      setUrlResult(found);setCart(found.cart);await load(false,found.cart.id);changed();toast.success('Ürün sepete eklendi ve mağazalar karşılaştırıldı.');
+    });
+  }
   async function refreshPrices(productIds:string[],force:boolean,notify=false){
     if(!productIds.length)return;
     if(priceRefresh.current){productIds.forEach(id=>queuedRefresh.current.add(id));queuedForce.current ||= force;return;}
@@ -853,7 +861,7 @@ export default function Workspace({
             <strong>{labels[view]}</strong>
           </div>
           <div className="top-actions">
-            <button className="mode-switch" onClick={()=>{setUrlResult(null);patch("url","");patch("quantity","1");setModal("url");}}><Link2 size={16}/> Linkten karşılaştır</button>
+            {view!=='cart'&&<button className="mode-switch" onClick={()=>{setUrlResult(null);patch("url","");patch("quantity","1");setModal("url");}}><Link2 size={16}/> Linkten karşılaştır</button>}
             <button
               className="icon-button"
               aria-label={dark ? "Açık tema" : "Koyu tema"}
@@ -960,6 +968,10 @@ export default function Workspace({
                   </Button>
                 ) : null}
               </div>
+              {view==='cart'&&!data.demo&&<form className="cart-link-entry surface" onSubmit={event=>{event.preventDefault();void compareLink();}}>
+                <div className="cart-link-title"><Link2 size={23}/><div><h2>Ürün linkini yapıştır, mağazaları karşılaştır</h2><p>Mağazada bulduğun parçanın bağlantısını ekle; aynı ürünü bulup sepetine ekleyelim.</p></div></div>
+                <div className="cart-link-fields"><label>Mağaza ürün bağlantısı<input aria-label="Sepete eklenecek ürün bağlantısı" type="url" required placeholder="https://www.robotistan.com/urun-baglantisi" value={form.url} disabled={!!busy} onChange={event=>{setUrlResult(null);patch('url',event.target.value);}}/></label><label>İhtiyaç adedi<input aria-label="Bağlantıdaki ürünün ihtiyaç adedi" type="number" min="1" max="100000" required value={form.quantity} disabled={!!busy} onChange={event=>patch('quantity',event.target.value)}/></label><Button type="submit" disabled={!!busy||!form.url.trim()||!canAdd}>{busy==='url'?<LoaderCircle className="animate-spin" size={17}/>:<Link2 size={17}/>}Karşılaştır ve sepete ekle</Button></div>
+              </form>}
               {view!=='feedback'&&<form
                 className="searchbar"
                 onSubmit={(e) => {
@@ -2193,11 +2205,7 @@ export default function Workspace({
           {modal === "url" && <>
             <Field label="Mağaza ürün bağlantısı"><input type="url" placeholder="https://www.robotistan.com/…" value={form.url} disabled={!!busy} onChange={event=>{setUrlResult(null);patch("url",event.target.value);}}/></Field>
             <Field label="İhtiyaç adedi"><input type="number" min="1" max="100000" value={form.quantity} disabled={!!busy} onChange={event=>{setUrlResult(null);patch("quantity",event.target.value);}}/></Field>
-            <Button disabled={!!busy || !form.url || !canAdd} onClick={()=>void work("url",async()=>{
-              setUrlResult(null);
-              const found=await api<LinkResult>("url","POST",{url:form.url.trim(),cartId:cart!.id,quantity:Number(form.quantity)});
-              setUrlResult(found);setCart(found.cart);await load(false,found.cart.id);changed();toast.success("Ürün sepete eklendi ve mağazalar karşılaştırıldı.");
-            })}>{busy==="url"?<LoaderCircle className="animate-spin" size={16}/>:<Link2 size={16}/>} En ucuzu bul ve sepete ekle</Button>
+            <Button disabled={!!busy || !form.url || !canAdd} onClick={()=>void compareLink()}>{busy==="url"?<LoaderCircle className="animate-spin" size={16}/>:<Link2 size={16}/>} En ucuzu bul ve sepete ekle</Button>
             {busy==="url" && <p role="status">Ürün modeli ve varyantı okunuyor; diğer mağazaların fiyatları karşılaştırılıyor…</p>}
             {urlResult && <LinkComparison result={urlResult} busy={!!busy} editable={!!editable} onExclude={(offerId,excluded)=>void excludeOffer(urlResult.product.id,offerId,excluded)}/>}
           </>}

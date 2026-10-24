@@ -31,9 +31,10 @@ import type { CatalogPreview } from "@/lib/server/catalog-preview";
 import {catalogFeedback} from '@/lib/feedback-catalog';
 import {matchedCatalogSources} from '@/lib/catalog-display-sources';
 import type {FeedbackContext} from '@/lib/feedback';
+import {displayablePreview,oldArchivePrice} from '@/lib/archive-discovery';
 
 type Source = { storeId: string; url: string; sourceCategory: string; name?:string };
-const previewObserved=(p:CatalogPreview)=>Boolean(p.price && Number.isFinite(Date.parse(p.checkedAt)) && Date.parse(p.checkedAt)<=Date.now() && Date.now()-Date.parse(p.checkedAt)<(p.maxAgeMs||20*60*1000));
+const previewObserved=displayablePreview;
 type IndexedProduct = {
   key: string;
   name: string;
@@ -98,7 +99,7 @@ function ProductVisual({
       {image && failed !== image ? (
         <img src={image} alt={name} loading="lazy" referrerPolicy="no-referrer" onError={() => {setFailed(image);onImageError?.(image);}} />
       ) : (
-        <Icon size={50} strokeWidth={1.25} />
+        <><Icon size={50} strokeWidth={1.25} /><small className="catalog-image-note">{image?'Mağaza görseli yüklenemedi':'Mağaza görseli henüz yok'}</small></>
       )}
     </div>
   );
@@ -125,6 +126,8 @@ export function MerchantCatalog({
   const [group, setGroup] = useState("all");
   const [store, setStore] = useState("all");
   const [page, setPage] = useState(0);
+  const [catalogSource,setCatalogSource]=useState('archive');
+  const archiveMode=phase==='B'&&catalogSource==='archive';
   const [rows, setRows] = useState<IndexedProduct[]>([]);
   const [status, setStatus] = useState<SearchResponse | null>(null);
   const [selected, setSelected] = useState<IndexedProduct | null>(null);
@@ -163,7 +166,7 @@ export function MerchantCatalog({
   }, []);
 
   useEffect(() => {
-    if (!manifest) return;
+    if (!manifest||archiveMode) return;
     const nextWorker = new Worker("/catalog/search-worker.js?v=20261023-discovery2", {type:"module"});
     worker.current = nextWorker;
     nextWorker.onmessage = (event: MessageEvent<SearchResponse>) => {
@@ -178,24 +181,40 @@ export function MerchantCatalog({
       nextWorker.terminate();
       worker.current = null;
     };
-  }, [manifest]);
+  }, [manifest,archiveMode]);
 
   useEffect(() => {
     setPage(0);
   }, [query]);
 
   useEffect(() => {
-    if (!worker.current || !manifest) return;
+    if (archiveMode||!worker.current || !manifest) return;
     const id = ++request.current;
     setRows([]);
     setSelected(null);
     setStatus({ requestId: id, progress: 0, chunks: 1 });
     const timer = setTimeout(() => worker.current?.postMessage({ requestId: id, query, group, store, page }), query ? 300 : 0);
     return () => clearTimeout(timer);
-  }, [query, group, store, page, manifest]);
+  }, [query, group, store, page, manifest,archiveMode]);
+
+  useEffect(()=>{
+    if(!archiveMode)return;
+    const id=++request.current,controller=new AbortController();
+    setRows([]);setSelected(null);setStatus({requestId:id,progress:0,chunks:1});
+    const timer=setTimeout(()=>{
+      const params=new URLSearchParams({q:query,group,store,page:String(page)});
+      void api<{results:IndexedProduct[];previews:CatalogPreview[];count:number;hasMore:boolean}>('catalog/archive?'+params,'GET',undefined,controller.signal).then(result=>{
+        if(controller.signal.aborted||id!==request.current)return;
+        setPreviews(current=>({...current,...Object.fromEntries(result.previews.map(p=>[p.url,p]))}));
+        result.previews.forEach(p=>attemptedPreviews.current.add(p.url));
+        setRows(result.results);setStatus({requestId:id,done:true,count:result.count,hasMore:result.hasMore});
+      }).catch(error=>{if(!controller.signal.aborted)setStatus({requestId:id,error:error instanceof Error?error.message:'Arşiv okunamadı.'});});
+    },query?300:0);
+    return()=>{clearTimeout(timer);controller.abort();};
+  },[archiveMode,query,group,store,page]);
 
   useEffect(() => {
-    if (previewPending.current) return;
+    if (archiveMode||previewPending.current) return;
     const delay=phase==='B'?Math.max(0,previewBlockedUntil.current-Date.now()):previewWait(previewStarted.current,previewBlockedUntil.current);
     if(delay){const timer=setTimeout(()=>setPreviewRevision(current=>current+1),delay);return()=>clearTimeout(timer);}
     const urls = previewBatch([...(selectedProduct?.sources.map(source => source.url) || []), ...rows
@@ -224,7 +243,7 @@ export function MerchantCatalog({
         previewPending.current = false;
         if (previewLive.current) setPreviewRevision(current => current + 1);
       });
-  }, [rows, previews, selected, previewRevision, failedImages,phase]);
+  }, [rows, previews, selected, previewRevision, failedImages,phase,archiveMode]);
 
   const sourceStore = (id: string) =>
     stores.find((candidate) => candidate.id === id)?.name || id;
@@ -253,7 +272,7 @@ export function MerchantCatalog({
   };
   const checkedPrice = (url: string, key: string) => {
     const preview = previews[url];
-    if (preview?.key === key && preview.price && preview.stockStatus === "in_stock" && previewObserved(preview)) return money(preview.price);
+    if (preview?.key === key && preview.price && (phase==='B'||preview.stockStatus === "in_stock") && previewObserved(preview)) return money(preview.price);
     if (preview?.price && previewObserved(preview)) return null;
     if(phase==='B')return null;
     const offer = offers.find(
@@ -274,6 +293,15 @@ export function MerchantCatalog({
   const selectedStore = manifest?.stores.find(
     (candidate) => candidate.id === store,
   );
+  const priceNote=(row:IndexedProduct)=>{
+    const priced=row.sources.map(s=>previews[s.url]).filter(p=>p?.key===row.key&&previewObserved(p));
+    if(!priced.length)return null;
+    const current=priced.filter(p=>!oldArchivePrice(p)),shown=current.length?current:priced;
+    const stock=shown.filter(p=>p.stockStatus==='in_stock'),out=shown.filter(p=>p.stockStatus==='out_of_stock');
+    const candidates=stock.length?stock:out.length?out:shown;
+    const quote=candidates.reduce((low,p)=>p.price!/(p.packageQuantity||1)<low.price!/(low.packageQuantity||1)?p:low,candidates[0]);
+    return <small className={`catalog-price-date ${current.length?'':'catalog-price-old'}`}>{current.length?'Son kontrol':'Eski fiyat · Son kontrol'}: {new Date(quote.checkedAt).toLocaleString('tr-TR')}{shown.length>1?' · Diğer mağaza tarihleri ayrıntıda':''}</small>;
+  };
 
   return (
     <section className="merchant-catalog" aria-label="Ürün kataloğu">
@@ -283,11 +311,12 @@ export function MerchantCatalog({
           <h2>Ürünler</h2>
           <p>
             {manifest
-              ? `${manifest.total.toLocaleString("tr-TR")} mağaza kaydı · ${manifest.stores.length} mağaza`
+              ? archiveMode?`${status?.count?.toLocaleString('tr-TR')||'…'} fiyatlı ve görselli arşiv ürünü · ${manifest.stores.length} mağaza`:`${manifest.total.toLocaleString("tr-TR")} mağaza kaydı · ${manifest.stores.length} mağaza`
               : "Katalog yükleniyor…"}
           </p>
-          {phase==='B'&&<p>Fiyatlar ortak arşivden okunur; bu ekranda canlı mağaza kontrolü yapılmaz. Son kontrol tarihi korunur.</p>}
+          {phase==='B'&&<p>Fiyatlar ortak arşivden okunur. 12 saatten eski fiyatlar tarihleriyle gösterilir; güncel teklif veya stok sayılmaz.</p>}
         </div>
+        {phase==='B'&&<label>Görünüm<select aria-label="Katalog görünümü" value={catalogSource} onChange={event=>{setCatalogSource(event.target.value);setPage(0);}}><option value="archive">Fiyatı ve görseli olanlar</option><option value="all">Tüm katalog · eksikler dahil</option></select></label>}
         <label>
           Mağaza
           <select
@@ -393,12 +422,16 @@ export function MerchantCatalog({
             />
             <h3>{row.shortName || row.name}</h3>
             <p className="merchant-card-price">{(() => {
-              const prices=row.sources.map(source=>previews[source.url]).filter(p=>p?.key===row.key&&p.stockStatus==='in_stock'&&previewObserved(p));
+              const valid=row.sources.map(source=>previews[source.url]).filter(p=>p?.key===row.key&&previewObserved(p));
+              const recent=valid.filter(p=>!oldArchivePrice(p)),available=recent.length?recent:valid;
+              const prices=available.filter(p=>p.stockStatus==='in_stock');
               if(prices.length)return [...new Set(prices.map(p=>p.unitType==='metre'?'metre':row.key.startsWith('cable:jumper:')?'set':'adet'))].map(unit=>`${money(Math.min(...prices.filter(p=>(p.unitType==='metre'?'metre':row.key.startsWith('cable:jumper:')?'set':'adet')===unit).map(p=>Math.round(p.price!/(p.packageQuantity||1)))))} / ${unit}`).join(' · ');
-              const soldOut=row.sources.map(source=>previews[source.url]).filter(p=>p?.key===row.key&&p.stockStatus==='out_of_stock'&&previewObserved(p));
-              if(soldOut.length)return `${money(Math.min(...soldOut.map(p=>Math.round(p.price!/(p.packageQuantity||1)))))} · Stokta yok`;
-              return row.sources.every(source=>attemptedPreviews.current.has(source.url)&&previews[source.url]) ? phase==='B'?'Arşivde kullanılabilir fiyat yok':'Fiyat doğrulanamadı' : phase==='B'?'Arşiv okunuyor…':'Fiyatlar kontrol ediliyor…';
+              const soldOut=available.filter(p=>p.stockStatus==='out_of_stock');
+              if(soldOut.length)return `${money(Math.min(...soldOut.map(p=>Math.round(p.price!/(p.packageQuantity||1)))))} · ${recent.length?'Stokta yok':'Son kontrolde stokta yok'}`;
+              if(available.length)return `${money(Math.min(...available.map(p=>Math.round(p.price!/(p.packageQuantity||1)))))} · Stok bilgisi yok`;
+              return row.sources.every(source=>attemptedPreviews.current.has(source.url)&&previews[source.url]) ? phase==='B'?row.sources.some(s=>previews[s.url]?.archiveState==='invalid')?'Fiyat doğrulanamadı':row.sources.some(s=>!previews[s.url]?.archiveState)?'Arşiv sorgusu başarısız':'Henüz fiyat arşivlenmemiş':'Fiyat doğrulanamadı' : phase==='B'?'Arşiv okunuyor…':'Fiyatlar kontrol ediliyor…';
             })()}</p>
+            {priceNote(row)}
           </button>
         );})}
       </div>
@@ -406,8 +439,9 @@ export function MerchantCatalog({
       {status?.done && !rows.length && (
         <div className="merchant-empty">
           <PackageSearch size={38} />
-          <strong>Ürün bulunamadı</strong>
-          <span>Model kodunu veya ürün adını farklı yazarak tekrar ara.</span>
+          <strong>{archiveMode?'Fiyatı ve görseli tamamlanmış arşiv kaydı bulunamadı':'Ürün bulunamadı'}</strong>
+          <span>{archiveMode?'Taranmamış ürünler için Tüm katalog görünümüne geçebilirsin.':'Model kodunu veya ürün adını farklı yazarak tekrar ara.'}</span>
+          {archiveMode&&<button onClick={()=>{setCatalogSource('all');setPage(0);}}>Tüm katalogda ara</button>}
         </div>
       )}
 
@@ -475,8 +509,9 @@ export function MerchantCatalog({
                           ? previews[source.url].key && previews[source.url].key !== selectedProduct.key ? "Ürün bilgisi eşleşmedi" : previews[source.url].archiveState==='missing' ? 'Arşivde kayıt yok' : previews[source.url].archiveState==='expired' ? 'Arşiv kaydı eski' : previews[source.url].collectorPending ? "Toplayıcı yenilemesi bekleniyor" : previews[source.url].stockStatus === "out_of_stock" ? "Stokta yok" : "Fiyat doğrulanamadı"
                           : phase==='B'?'Arşiv okunuyor…':"Mağaza kontrol ediliyor…")}
                         {checkedPrice(source.url,selectedProduct.key) ? previews[source.url]?.unitType==='metre' ? " / metre · KDV dahil" : selectedProduct.key.startsWith("cable:jumper:") ? " / set · KDV dahil" : ` / ${previews[source.url]?.packageQuantity && previews[source.url].packageQuantity!>1 ? `${previews[source.url].packageQuantity} adetlik paket` : "adet"} · KDV dahil` : ""}
-                        {previews[source.url]?.archiveState==='fresh' ? ' · Arşiv' : previews[source.url]?.collectorManaged ? " · Toplayıcı arşivi" : previews[source.url]?.retained ? " · son doğrulanan fiyat" : ""}
+                        {previews[source.url]&&oldArchivePrice(previews[source.url])?' · ESKİ FİYAT / STOK':previews[source.url]?.archiveState==='fresh' ? ' · Arşiv' : previews[source.url]?.collectorManaged ? " · Toplayıcı arşivi" : previews[source.url]?.retained ? " · son doğrulanan fiyat" : ""}
                         {checkedPrice(source.url,selectedProduct.key) && <small>Son kontrol · {new Date(previews[source.url]?.checkedAt || offers.find(o=>o.product_url===source.url)?.last_checked_at || '').toLocaleString('tr-TR')}</small>}
+                        {checkedPrice(source.url,selectedProduct.key)&&previews[source.url]&&<small>{oldArchivePrice(previews[source.url])?'Son kontroldeki stok':'Kayıtlı stok'}: {previews[source.url].stockStatus==='in_stock'?'Stokta vardı':previews[source.url].stockStatus==='out_of_stock'?'Stokta yoktu':'Bilinmiyor'}</small>}
                       </span>
                       {previews[source.url]?.message && !checkedPrice(source.url,selectedProduct.key) && <small>{previews[source.url].message}</small>}
                     </div>
@@ -484,6 +519,7 @@ export function MerchantCatalog({
                 ))}
               </div>
               <button className="merchant-dialog-refresh" disabled={previewPending.current || busy} onClick={() => {
+                if(archiveMode){void api<CatalogPreview[]>('catalog/preview','POST',{urls:selectedProduct.sources.map(s=>s.url).slice(0,120),force:true}).then(items=>setPreviews(current=>({...current,...Object.fromEntries(items.map(p=>[p.url,p]))}))).catch(error=>setStatus(current=>({...current,requestId:request.current,error:error instanceof Error?error.message:'Arşiv okunamadı.'})));return;}
                 selectedProduct.sources.forEach(source => attemptedPreviews.current.delete(source.url));
                 selectedProduct.sources.forEach(source=>forcePreviewUrls.current.add(source.url));
                 setPreviews(current => Object.fromEntries(Object.entries(current).filter(([url]) => !selectedProduct.sources.some(source => source.url === url))));

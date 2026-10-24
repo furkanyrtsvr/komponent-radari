@@ -1,4 +1,5 @@
 import {merchantDisplayPreferences} from './request-preferences';
+import {productImage} from './product-image';
 import { load } from "cheerio";
 import type { ExtractedProduct, StoreAdapter, StoreConfig } from "./types";
 import { ascii } from "../../public/catalog/product-identity.js";
@@ -249,8 +250,7 @@ export function parseProduct(html: string, url: string): ExtractedProduct {
     mpn: String(p.mpn || ""),
     manufacturer: brand,
     model: String(p.model || p.mpn || ""),
-    image:
-      typeof image === "string" && image.startsWith("https://") ? image : null,
+    image:productImage(rawImage,url,$('meta[property="og:image"]').attr('content')),
     price: parsePrice(offers.price ?? spec.price),
     currency: String(offers.priceCurrency || spec.priceCurrency || ""),
     vatIncluded: vat,

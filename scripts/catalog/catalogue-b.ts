@@ -1,6 +1,6 @@
 /** Independent merchant collector. No Cloudflare runtime or browser session required. */
 import {DatabaseSync} from 'node:sqlite';
-import {collectionQueue} from './queue';
+import {collectionQueue,REFRESH_AFTER_MS} from './queue';
 import {registerCollectorRequests} from './collector-requests';
 import type {CollectorRequest} from '../../src/lib/collector-routing';
 import {readFileSync,mkdirSync,openSync,closeSync,unlinkSync,existsSync,writeFileSync} from 'node:fs';
@@ -24,7 +24,7 @@ db.exec(`PRAGMA journal_mode=WAL;PRAGMA synchronous=NORMAL;
  CREATE TABLE IF NOT EXISTS runs(id TEXT PRIMARY KEY,started_at TEXT NOT NULL,finished_at TEXT,summary TEXT);
  CREATE TABLE IF NOT EXISTS history(store_id TEXT,url TEXT,checked_at TEXT,price INTEGER,stock TEXT,PRIMARY KEY(store_id,url,checked_at));`);
 const write=db.prepare(`UPDATE products SET name=?,checked_at=?,payload=?,last_attempt=?,next_due=?,error=NULL,uploaded_at=NULL WHERE store_id=? AND url=? AND (checked_at IS NULL OR checked_at<? OR (checked_at=? AND COALESCE(json_extract(payload,'$.readerRevision'),0)<?))`);
-function save(record:SnapshotRecord){const p=record.product,key=record.requestedUrl||p.url;db.prepare('INSERT OR IGNORE INTO products(store_id,url,name,category,source_category,generation) VALUES(?,?,?,?,?,?)').run(record.storeId,key,p.name,'Diğer','',String(db.prepare("SELECT value FROM metadata WHERE key='generation'").get()?.value||''));return write.run(p.name,record.checkedAt,JSON.stringify(record),record.checkedAt,new Date(Date.parse(record.checkedAt)+12*3600000).toISOString(),record.storeId,key,record.checkedAt,record.checkedAt,record.readerRevision||0).changes;}
+function save(record:SnapshotRecord){const p=record.product,key=record.requestedUrl||p.url;db.prepare('INSERT OR IGNORE INTO products(store_id,url,name,category,source_category,generation) VALUES(?,?,?,?,?,?)').run(record.storeId,key,p.name,'Diğer','',String(db.prepare("SELECT value FROM metadata WHERE key='generation'").get()?.value||''));return write.run(p.name,record.checkedAt,JSON.stringify(record),record.checkedAt,new Date(Date.parse(record.checkedAt)+REFRESH_AFTER_MS).toISOString(),record.storeId,key,record.checkedAt,record.checkedAt,record.readerRevision||0).changes;}
 async function run(){
  const manifestText=readFileSync('public/catalog/manifest.json','utf8'),manifest=JSON.parse(manifestText),generation=createHash('sha256').update(manifestText).digest('hex');
  if(db.prepare("SELECT value FROM metadata WHERE key='generation'").get()?.value!==generation){
@@ -45,7 +45,8 @@ async function run(){
  }
  if(process.argv.includes('--collect')){
   if(secret){try{const r=await fetch(`${site}/api/catalog-snapshot`,{headers:auth,signal:AbortSignal.timeout(15000)});if(!r.ok)throw new Error(`HTTP ${r.status}`);const payload=await r.json() as {requests?:CollectorRequest[];watchlist:{storeId:string;url:string}[]};db.prepare('UPDATE products SET priority=0 WHERE priority>=10').run();const mark=db.prepare('UPDATE products SET priority=10,active=1 WHERE store_id=? AND url=?');for(const row of payload.watchlist)mark.run(row.storeId,row.url);requests=registerCollectorRequests(db,payload.requests||[],storeCatalog,generation);for(const request of requests){const old=db.prepare('SELECT error,last_attempt FROM products WHERE store_id=? AND url=?').get(request.storeId,request.url) as {error:string|null;last_attempt:string|null};if(old?.error&&old.last_attempt&&old.last_attempt>=request.requestedAt)requestFailures.push({id:request.id,requestedAt:request.requestedAt,error:old.error.slice(0,500)});}}catch(e){console.error('Yenileme kuyruğu alınamadı; katalog sırası kullanılıyor:',e instanceof Error?e.message:e);}}
-  const selected=arg('stores',storeCatalog.map(s=>s.id).join(',')).split(','),limit=Math.min(250,Math.max(1,Number(arg('limit','8'))));
+  const selected=arg('stores',storeCatalog.map(s=>s.id).join(',')).split(','),limit=Math.min(250,Math.max(1,Number(arg('limit','40'))));
+  const collectionDeadline=Date.now()+18*60*1000;
   const knownOnly=process.argv.includes('--known-only');
   if(!Number.isInteger(limit)||selected.some(id=>!storeCatalog.some(s=>s.id===id)))throw new Error('Geçersiz mağaza veya kayıt sınırı.');
   await Promise.all(storeCatalog.filter(s=>selected.includes(s.id)).map(async store=>{
@@ -53,6 +54,7 @@ async function run(){
    try{const r=await fetch(`https://${store.domain}/robots.txt`,{headers:{'user-agent':'EUB-PriceComparison/1.0 (+public product metadata; no authentication)'},signal:AbortSignal.timeout(10000)});if(!r.ok)throw new Error(`robots HTTP ${r.status}`);const text=await r.text();delay=Math.max(delay,...[...text.matchAll(/^\s*Crawl-delay:\s*([\d.]+)/gim)].map(m=>Number(m[1])*1000));}catch(e){summary.failed++;storeErrors.set(store.id,String(e).slice(0,500));for(const request of requests.filter(r=>r.storeId===store.id))requestFailures.push({id:request.id,requestedAt:request.requestedAt,error:String(e).slice(0,500)});console.error(`${store.id}: ${e instanceof Error?e.message:e}`);return;}
    const rows=collectionQueue(db,store.id,limit,knownOnly);
    for(const row of rows){
+    if(Date.now()+delay+30000>=collectionDeadline){console.log(`${store.id}: Turun süre sınırı; kalan kayıtlar sonraki turda devam edecek.`);break;}
     await new Promise(r=>setTimeout(r,delay));
     try{
      const p=await adapterFor(store).getProduct(row.url),pack=p.packageQuantity||1;
@@ -77,4 +79,4 @@ async function run(){
 
  console.log(JSON.stringify(summary));if(summary.uploadError)process.exitCode=1;
 }
-try{await run();}catch(e){console.error(e instanceof Error?e.message:e);process.exitCode=1;}finally{db.close();unlinkSync(lock);}
+try{await run();}catch(e){console.error(e instanceof Error?e.message:e);process.exitCode=1;}finally{db.exec('PRAGMA wal_checkpoint(TRUNCATE)');db.close();unlinkSync(lock);}

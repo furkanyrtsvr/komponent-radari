@@ -36,10 +36,11 @@ export async function archivePreviews(urls:string[],stores:Store[],read:(urls:st
    const valid=validateSnapshot(parsed,stores,Date.parse(row.checked_at));
    if(valid.storeId!==store.id||Date.parse(valid.checkedAt)!==Date.parse(row.checked_at))throw new Error('Arşiv kaydı tutarsız.');
    const record=upgradeSnapshotReader(valid);if(!record)throw new Error('Fiyat kanıtı geçersiz.');
+   if(Date.parse(row.checked_at)>at)throw new Error('Gelecekteki kontrol tarihi kullanılamaz.');
    const p=record.product,fresh=snapshotUsable(row.checked_at,SNAPSHOT_TTL_MS,at);
    return {...empty,name:p.name,key:catalogIdentity(p),image:p.image?.startsWith('https://')?p.image:null,packageQuantity:p.packageQuantity,unitType:p.unitType,
-    price:fresh?p.price:null,stockStatus:fresh?p.stockStatus:'unknown',archiveState:fresh?'fresh':'expired',
-    message:fresh?'Arşiv fiyatı; mağazadaki son kontrol: '+row.checked_at:'Arşiv kaydı 12 saatlik kullanım süresinin dışında; fiyat gösterilmiyor.'};
+    price:p.price,stockStatus:p.stockStatus,archiveState:fresh?'fresh':'expired',
+    message:fresh?'Arşiv fiyatı; mağazadaki son kontrol: '+row.checked_at:'Eski arşiv fiyatı; güncel fiyat ve stok değildir. Son kontrol: '+row.checked_at};
   }catch{return {...empty,archiveState:'invalid',message:'Arşivdeki fiyat ve satış birimi doğrulanamadı; fiyat gösterilmiyor.'};}
  });
 }

@@ -16,6 +16,7 @@ import {cartEvents} from "@/lib/server/cart-events";
 import { previewCatalogProducts } from "@/lib/server/catalog-preview";
 import {pricePhase} from '@/lib/server/snapshots';
 import {ARCHIVE_PREVIEW_BATCH} from '@/lib/archive-preview';
+import {discoverArchive} from '@/lib/server/archive-discovery';
 import { createLiveStarter } from "@/lib/server/carts";
 import { z } from "zod";
 import { user, isAdmin, requireAdmin, checkOrigin } from "@/lib/server/auth";
@@ -144,6 +145,10 @@ async function handle(request: Request, context: Context) {
         urls,
         z.string().max(80).parse(body.category),
       ));
+    }
+    if(route==='catalog/archive'&&method==='GET'){
+      const params=new URL(request.url).searchParams;
+      return Response.json(await discoverArchive({query:z.string().max(300).parse(params.get('q')||''),group:z.string().max(80).parse(params.get('group')||'all'),store:z.string().max(80).parse(params.get('store')||'all'),page:z.coerce.number().int().min(0).max(10000).parse(params.get('page')||'0')}));
     }
     if (route === "catalog/preview" && method === "POST") {
       await rateLimit("catalog-preview:" + u.id, 60);
