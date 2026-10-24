@@ -1,7 +1,8 @@
 import type { Store } from "../domain";
-import { HttpError, list } from "./db";
+import { HttpError, list,listIn } from "./db";
 import { adapterFor } from "../../stores/registry";
-import {readProduct,pricePhase,snapshotSources} from './snapshots';
+import {readProduct,pricePhase,snapshotSources,addressAliases} from './snapshots';
+import {enrichCatalogPreview} from '../catalog-metadata';
 import {archivePreviews} from '../archive-preview';
 import {snapshotUsable} from '../catalog-snapshot';
 import {LIVE_TTL_MS} from '../pricing';
@@ -12,6 +13,7 @@ import {usesCollector,COLLECTOR_TTL_MS,CollectorReadError} from '../collector-ro
 
 export type CatalogPreview = {
   url: string;
+  canonicalUrl?:string;
   name: string;
   image: string | null;
   key: string;
@@ -27,6 +29,8 @@ export type CatalogPreview = {
   maxAgeMs?:number;
   sources?:{storeId:string;url:string;name:string}[];
   archiveState?:'fresh'|'missing'|'expired'|'invalid';
+  metadataOnly?:boolean;
+  metadataObservedAt?:string;
 };
 
 const cache = new Map<string, {at:number; value:Promise<CatalogPreview>}>();
@@ -34,7 +38,15 @@ const cache = new Map<string, {at:number; value:Promise<CatalogPreview>}>();
 export async function previewCatalogProducts(urls: string[], force = false) {
   const phase=await pricePhase();
   const stores = await list<Store>("stores");
-  if(phase==='B')return archivePreviews(urls,stores,snapshotSources);
+  if(phase==='B'){
+    const values=await archivePreviews(urls,stores,snapshotSources),missing=values.filter(p=>!p.image);
+    const metadata=await listIn<{store_id:string;url:string;raw_data:string}>('store_products','url',missing.flatMap(p=>addressAliases(p.url)));
+    return values.map(preview=>{
+      const store=stores.find(s=>s.domain.replace(/^www\./,'')===new URL(preview.url).hostname.replace(/^www\./,''));
+      const row=metadata.find(m=>m.store_id===store?.id&&addressAliases(preview.url).includes(m.url));
+      try{return row?enrichCatalogPreview(preview,JSON.parse(row.raw_data).catalogMetadata,stores):preview;}catch{return preview;}
+    });
+  }
   const unique = [...new Set(urls)].slice(0, 12);
   const results = await Promise.allSettled(
     unique.map(async (url): Promise<CatalogPreview> => {
@@ -66,7 +78,7 @@ export async function previewCatalogProducts(urls: string[], force = false) {
           if (!usesCollector(store.id)&&!isRetryableStoreError(error) && adapter.getCatalogProduct) { try { product = await adapter.getCatalogProduct(url); } catch { /* Return an explicit unreadable source. */ } }
         }
         const verified = product?.price && product.currency === "TRY" && product.vatIncluded === true && product.quantityVerified === true;
-        return {url, name:product?.name || "", key:product ? catalogIdentity(product) : "",
+        return {url,canonicalUrl:product?.url, name:product?.name || "", key:product ? catalogIdentity(product) : "",
           image:product?.image?.startsWith("https://") ? product.image : null,
           price:verified ? product!.price : null, stockStatus:product?.stockStatus || "unknown",
           checkedAt:product?.checkedAt || new Date().toISOString(), packageQuantity:product?.packageQuantity || 1,unitType:product?.unitType,

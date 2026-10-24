@@ -12,10 +12,14 @@ export function parseEkomponentProduct(html:string,url:string){
  const qty=scope.find('input[id^="ProductCount"]').first(),minimum=Number(qty.attr('min')),step=Number(qty.attr('step')),unit=qty.parent().find('.unit').text().trim(),id=fields.find('#product-id').attr('value');
  if(!id||!qty.attr('id')?.startsWith('ProductCount'+id)||!Number.isSafeInteger(minimum)||minimum<1||!Number.isSafeInteger(step)||step<1||unit!=='Adet'||scope.find('select[name*="variant"]').length)throw new Error('E komponent satış birimi doğrulanamadı.');
  const stockFlag=fields.find('#product-stock-status').attr('value'),available=scope.find('.in-stock-available').filter((_,e)=>!$(e).hasClass('d-none')).length>0;
- if(stockFlag!=='1'||!available||p.stockStatus!=='in_stock')throw new Error('E komponent stok bilgisi doğrulanamadı.');
+ const unavailable=scope.find('.out-stock-available').filter((_,e)=>!$(e).hasClass('d-none')).length>0;
+ const inStock=stockFlag==='1'&&available&&!unavailable&&p.stockStatus==='in_stock';
+ const soldOut=stockFlag==='0'&&!available&&unavailable&&p.stockStatus==='out_of_stock';
+ if(!inStock&&!soldOut)throw new Error('E komponent stok bilgisi doğrulanamadı.');
  const packs=scope.find('.multiple-item[data-stock]').map((_,e)=>Number($(e).attr('data-stock'))).get().filter(Number.isSafeInteger),stock=[...new Set(packs)],pack=salePack(p.name);
+ if(soldOut&&stock.some(n=>n!==0))throw new Error('E komponent stok bilgisi çelişiyor.');
  const priceTiers=scope.find('.multiple-item').filter((_,e)=>!$(e).hasClass('give-bid')).map((_,e)=>{const row=$(e),q=Number(row.attr('data-min')),max=Number(row.attr('data-max')),price=parsePrice(row.find('.col-4').eq(1).text());return Number.isSafeInteger(q)&&q>=minimum&&price&&price<=gross?{minimum:q*pack,maximum:Number.isSafeInteger(max)&&max>=q?max*pack:null,price}:null;}).get();
- return {...p,mpn,price:gross,vatIncluded:true,packageQuantity:pack,minimumOrderQuantity:minimum*pack,orderStep:step*pack,quantityVerified:true,stockQuantity:stock.length===1?stock[0]*pack:null,priceTiers,warnings:['E komponent ana ürününün TRY fiyatı, KDV ve satış birimi doğrulandı.']};
+ return {...p,mpn,price:gross,vatIncluded:true,packageQuantity:pack,minimumOrderQuantity:minimum*pack,orderStep:step*pack,quantityVerified:true,stockQuantity:soldOut?0:stock.length===1?stock[0]*pack:null,priceTiers,warnings:['E komponent ana ürününün TRY fiyatı, KDV ve satış birimi doğrulandı.']};
 }
 export class EkomponentAdapter extends JsonLdAdapter{
  async getProduct(raw:string){const page=await this.readPage(raw);return parseEkomponentProduct(page.html,page.url);}

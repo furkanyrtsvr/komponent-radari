@@ -250,7 +250,7 @@ export function MerchantCatalog({
   const verifiedRow=(row:IndexedProduct):IndexedProduct=>{
     // Sitemap names may lose fractions, decimal points or dimensions. The
     // title read from this card's own merchant page is the authoritative key.
-    const anchor=row.sources.map(source=>previews[source.url]).find(preview=>preview?.name && preview.key && preview.price);
+    const anchor=row.sources.map(source=>previews[source.url]).find(preview=>preview?.name && preview.key && (preview.price||preview.metadataOnly));
     if(!anchor) return row;
     const sources=matchedCatalogSources([...row.sources,...(anchor.sources || []).map(source=>({...source,sourceCategory:row.group}))],anchor.key,previews);
     return {...row,key:anchor.key,name:anchor.name,shortName:anchor.name,
@@ -498,7 +498,7 @@ export function MerchantCatalog({
                   <div key={source.url}>
                     <div>
                       <a
-                        href={source.url}
+                        href={previews[source.url]?.canonicalUrl||source.url}
                         target="_blank"
                         rel="noreferrer"
                       >

@@ -1,5 +1,13 @@
 import {load} from 'cheerio';
-import {JsonLdAdapter,parsePrice,parseProduct} from '../base';
+import {JsonLdAdapter,parsePrice,parseProduct,safeStoreUrl} from '../base';
+import {canonicalMerchantPath} from '../../lib/merchant-url-aliases';
+/** Merchant A0470's sitemap contained one stray leading hyphen. This exact
+ * canonical address was checked; never strip hyphens from arbitrary products. */
+export function robotronikProductUrl(raw:string,domain='www.robotronik.com.tr'){
+ const url=safeStoreUrl(raw,domain);
+ if(!url.search)url.pathname=canonicalMerchantPath(url.hostname,url.pathname);
+ return url.href;
+}
 export function parseRobotronikProduct(html:string,url:string){
   const $=load(html),p=parseProduct(html,url),scope=$('.urun-detay-cerceve').first();
   const gross=parsePrice(scope.find('.urun-detay-fiyat2').first().text());
@@ -13,5 +21,5 @@ export function parseRobotronikProduct(html:string,url:string){
   return {...p,price:gross,vatIncluded:true,packageQuantity:pack,minimumOrderQuantity:min*pack,orderStep:step*pack,quantityVerified:true,stockQuantity:stock===null?null:stock*pack};
 }
 export class RobotronikAdapter extends JsonLdAdapter{
-  async getProduct(raw:string){const page=await this.readPage(raw);return parseRobotronikProduct(page.html,page.url);}
+  async getProduct(raw:string){const page=await this.readPage(robotronikProductUrl(raw,this.store.domain));return parseRobotronikProduct(page.html,page.url);}
 }

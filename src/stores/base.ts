@@ -76,7 +76,7 @@ async function boundedFetch(url: URL, domain: string,signal=AbortSignal.timeout(
     }
     if (!r.ok)
       throw new StoreReadError(
-        `Mağaza ${r.status} yanıtı verdi. Güvenlik engelleri aşılmaz.`,
+        r.status===404||r.status===410?`Mağaza ${r.status} yanıtı verdi; bu ürün sayfası bulunamadı veya yayından kaldırılmış.`:`Mağaza ${r.status} yanıtı verdi. Güvenlik engelleri aşılmaz.`,
         r.status===408 || r.status===429 || r.status>=500,
       );
     if (Number(r.headers.get("content-length") || 0) > MAX_BYTES)

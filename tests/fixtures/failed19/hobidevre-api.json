@@ -1,0 +1,51 @@
+{
+  "id": 8180,
+  "name": "100K 1W Direnç",
+  "parent": 0,
+  "type": "simple",
+  "permalink": "https://hobidevre.com/urun/100k-1w-direnc/",
+  "sku": "RES-1W-100K",
+  "has_options": false,
+  "variations": [],
+  "prices": {
+    "price": "202",
+    "regular_price": "202",
+    "sale_price": "202",
+    "price_range": null,
+    "currency_code": "TRY",
+    "currency_symbol": "TL",
+    "currency_minor_unit": 2,
+    "currency_decimal_separator": ",",
+    "currency_thousand_separator": ".",
+    "currency_prefix": "",
+    "currency_suffix": " TL"
+  },
+  "is_in_stock": false,
+  "is_on_backorder": false,
+  "stock_availability": {
+    "text": "Stokta yok",
+    "class": "out-of-stock"
+  },
+  "add_to_cart": {
+    "text": "Devamını oku",
+    "description": "&ldquo;100K 1W Direnç&rdquo; hakkında daha fazla bilgi edinin",
+    "url": "https://hobidevre.com/urun/100k-1w-direnc/",
+    "single_text": "Sepete Ekle",
+    "minimum": 1,
+    "maximum": 9999,
+    "multiple_of": 1
+  },
+  "images": [
+    {
+      "id": 8118,
+      "src": "https://hobidevre.com/wp-content/uploads/2025/10/1_Watt_direnc.webp",
+      "thumbnail": "https://hobidevre.com/wp-content/uploads/2025/10/1_Watt_direnc-300x300.webp",
+      "srcset": "https://hobidevre.com/wp-content/uploads/2025/10/1_Watt_direnc.webp 800w, https://hobidevre.com/wp-content/uploads/2025/10/1_Watt_direnc-300x300.webp 300w, https://hobidevre.com/wp-content/uploads/2025/10/1_Watt_direnc-150x150.webp 150w, https://hobidevre.com/wp-content/uploads/2025/10/1_Watt_direnc-768x768.webp 768w, https://hobidevre.com/wp-content/uploads/2025/10/1_Watt_direnc-600x600.webp 600w, https://hobidevre.com/wp-content/uploads/2025/10/1_Watt_direnc-100x100.webp 100w",
+      "sizes": "(max-width: 800px) 100vw, 800px",
+      "thumbnail_srcset": "https://hobidevre.com/wp-content/uploads/2025/10/1_Watt_direnc-300x300.webp 300w, https://hobidevre.com/wp-content/uploads/2025/10/1_Watt_direnc-150x150.webp 150w, https://hobidevre.com/wp-content/uploads/2025/10/1_Watt_direnc-768x768.webp 768w, https://hobidevre.com/wp-content/uploads/2025/10/1_Watt_direnc-600x600.webp 600w, https://hobidevre.com/wp-content/uploads/2025/10/1_Watt_direnc-100x100.webp 100w, https://hobidevre.com/wp-content/uploads/2025/10/1_Watt_direnc.webp 800w",
+      "thumbnail_sizes": "(max-width: 300px) 100vw, 300px",
+      "name": "1_Watt_direnc",
+      "alt": ""
+    }
+  ]
+}

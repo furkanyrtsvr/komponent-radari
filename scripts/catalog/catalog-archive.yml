@@ -8,6 +8,13 @@ on:
         description: Maximum pages per merchant in this batch
         default: '40'
         required: true
+      recovery_set:
+        description: Optional exact failed-page recovery set
+        type: choice
+        default: none
+        options:
+          - none
+          - failed19-2026-10-24
 permissions:
   contents: read
 concurrency:
@@ -33,9 +40,14 @@ jobs:
         env:
           CATALOG_INGEST_SECRET: ${{ secrets.CATALOG_INGEST_SECRET }}
           COLLECTION_LIMIT: ${{ inputs.limit || '40' }}
+          RECOVERY_SET: ${{ inputs.recovery_set || 'none' }}
         run: |
           test -n "$CATALOG_INGEST_SECRET" || { echo 'Collector secret is missing'; exit 1; }
-          node --import tsx scripts/catalog/catalogue-b.ts --collect --limit="$COLLECTION_LIMIT" --site=https://komponent-radari.equalwood4.chatgpt.site
+          RECOVERY_ARGS=()
+          if [ "$RECOVERY_SET" = "failed19-2026-10-24" ]; then
+            RECOVERY_ARGS=(--targets=scripts/catalog/recovery/failed19-2026-10-24.json)
+          fi
+          node --import tsx scripts/catalog/catalogue-b.ts --collect --limit="$COLLECTION_LIMIT" --site=https://komponent-radari.equalwood4.chatgpt.site "${RECOVERY_ARGS[@]}"
       - uses: actions/cache/save@v4
         if: always()
         with:

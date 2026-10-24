@@ -10,10 +10,11 @@ import {safeStoreUrl,canRetainObservedProduct} from '../../stores/base';
 import {matchesCatalogRequirement} from '../catalog-identity';
 import {usesCollector,COLLECTOR_TTL_MS,collectorLabel,CollectorReadError} from '../collector-routing';
 import {requestCollectorRefresh,collectorRequestStatus} from './collector-requests';
+import {canonicalMerchantPath,merchantPathAliases} from '../merchant-url-aliases';
 export async function pricePhase(){try{return (await cookies()).get('eub_price_phase')?.value==='B'?'B':'A';}catch{return 'A';}}
 export type SnapshotRow={id:string;store_id:string;url:string;checked_at:string;payload:string};
-function addressAliases(raw:string){const u=new URL(raw),bare=u.hostname.replace(/^www\./,'');u.hash='';const a=u.href;u.hostname=bare;const b=u.href;u.hostname='www.'+bare;return [...new Set([a,b,u.href])];}
-function canonicalAddress(raw:string,storeId:string){const domain=storeCatalog.find(s=>s.id===storeId)?.domain;const u=new URL(raw);if(domain)u.hostname=domain;u.hash='';return u.href;}
+export function addressAliases(raw:string){const u=new URL(raw),bare=u.hostname.replace(/^www\./,'');u.hash='';const values:string[]=[];for(const path of u.search?[u.pathname]:merchantPathAliases(bare,u.pathname)){u.pathname=path;u.hostname=bare;values.push(u.href);u.hostname='www.'+bare;values.push(u.href);}return [...new Set(values)];}
+function canonicalAddress(raw:string,storeId:string){const domain=storeCatalog.find(s=>s.id===storeId)?.domain;const u=new URL(raw);if(domain)u.hostname=domain;if(!u.search)u.pathname=canonicalMerchantPath(u.hostname,u.pathname);u.hash='';return u.href;}
 /** Write through actual page observations; a cache read never advances its date. */
 export async function saveSnapshot(record:SnapshotRecord){
  const url=new URL(record.requestedUrl||record.product.url);url.hash='';
@@ -48,6 +49,7 @@ async function rememberProduct(store:StoreConfig,product:ExtractedProduct){
 }
 export async function readSnapshot(store:StoreConfig,url:string,maxAge:number) {
  const address=safeStoreUrl(url,store.domain);address.hostname=store.domain;address.hash='';
+ if(!address.search)address.pathname=canonicalMerchantPath(address.hostname,address.pathname);
  const row=(await listIn<SnapshotRow>('catalog_snapshots','url',addressAliases(address.href))).filter(r=>r.store_id===store.id).sort((a,b)=>b.checked_at.localeCompare(a.checked_at))[0];
  if(!row||!snapshotUsable(row.checked_at,maxAge))return undefined;
  const original=JSON.parse(row.payload) as SnapshotRecord;

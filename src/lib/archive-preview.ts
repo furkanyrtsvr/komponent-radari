@@ -1,6 +1,7 @@
 import {catalogIdentity} from './catalog-identity';
 import {SNAPSHOT_TTL_MS,snapshotUsable,validateSnapshot,upgradeSnapshotReader} from './catalog-snapshot';
 import type {CatalogPreview} from './server/catalog-preview';
+import {canonicalMerchantPath} from './merchant-url-aliases';
 
 export const ARCHIVE_PREVIEW_BATCH=120;
 type Store={id:string;domain:string;enabled:boolean|number};
@@ -8,7 +9,7 @@ type Row={store_id:string;url:string;checked_at:string;payload:string};
 function address(raw:string,domain:string){
  const url=new URL(raw);
  if(url.protocol!=='https:'||url.username||url.password||url.port||url.hostname.replace(/^www\./,'')!==domain.replace(/^www\./,''))throw new Error('Desteklenen mağaza bağlantısı gerekli.');
- url.hostname=domain.replace(/^www\./,'');url.hash='';return url.href;
+ url.hostname=domain.replace(/^www\./,'');if(!url.search)url.pathname=canonicalMerchantPath(url.hostname,url.pathname);url.hash='';return url.href;
 }
 
 /** Archive browsing has only a database reader: a miss cannot fall through to
@@ -38,7 +39,7 @@ export async function archivePreviews(urls:string[],stores:Store[],read:(urls:st
    const record=upgradeSnapshotReader(valid);if(!record)throw new Error('Fiyat kanıtı geçersiz.');
    if(Date.parse(row.checked_at)>at)throw new Error('Gelecekteki kontrol tarihi kullanılamaz.');
    const p=record.product,fresh=snapshotUsable(row.checked_at,SNAPSHOT_TTL_MS,at);
-   return {...empty,name:p.name,key:catalogIdentity(p),image:p.image?.startsWith('https://')?p.image:null,packageQuantity:p.packageQuantity,unitType:p.unitType,
+   return {...empty,canonicalUrl:p.url,name:p.name,key:catalogIdentity(p),image:p.image?.startsWith('https://')?p.image:null,packageQuantity:p.packageQuantity,unitType:p.unitType,
     price:p.price,stockStatus:p.stockStatus,archiveState:fresh?'fresh':'expired',
     message:fresh?'Arşiv fiyatı; mağazadaki son kontrol: '+row.checked_at:'Eski arşiv fiyatı; güncel fiyat ve stok değildir. Son kontrol: '+row.checked_at};
   }catch{return {...empty,archiveState:'invalid',message:'Arşivdeki fiyat ve satış birimi doğrulanamadı; fiyat gösterilmiyor.'};}

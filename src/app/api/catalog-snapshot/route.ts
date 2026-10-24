@@ -4,6 +4,8 @@ import {storeCatalog} from '@/lib/catalog';
 import {validateSnapshot} from '@/lib/catalog-snapshot';
 import {saveSnapshots} from '@/lib/server/snapshots';
 import {collectorWatchlist} from '@/lib/server/collector-watchlist';
+import {validateCatalogMetadata} from '@/lib/catalog-metadata';
+import {saveCatalogMetadata} from '@/lib/server/catalog-metadata';
 import {pendingCollectorRequests,failCollectorRequest,completeCollectorRequest} from '@/lib/server/collector-requests';
 export const dynamic='force-dynamic';
 async function authorized(request:Request){
@@ -19,14 +21,15 @@ export async function POST(request:Request){try{
  await authorized(request);
  if(Number(request.headers.get('content-length'))>500000)return Response.json({error:'İstek çok büyük'},{status:413});
  const raw=await request.text();if(raw.length>500000)return Response.json({error:'İstek çok büyük'},{status:413});
- const body=JSON.parse(raw);if(!Array.isArray(body.records)||!body.records.length||body.records.length>100)throw new HttpError(400,'1–100 kayıt gerekli.');
- const records=body.records.map((r:unknown)=>validateSnapshot(r,storeCatalog));
+ const body=JSON.parse(raw),input=body.records||[],images=body.metadata||[];
+ if(!Array.isArray(input)||!Array.isArray(images)||input.length+images.length<1||input.length>100||images.length>100)throw new HttpError(400,'1–100 fiyat veya görsel kaydı gerekli.');
+ const records=input.map((r:unknown)=>validateSnapshot(r,storeCatalog)),metadata=images.map((r:unknown)=>validateCatalogMetadata(r,storeCatalog));
  for(const record of records){
   const url=new URL(record.product.url);url.hostname=storeCatalog.find(s=>s.id===record.storeId)!.domain;url.hash='';record.product.url=url.href;
  }
- const saved=await saveSnapshots(records);
+ const saved=await saveSnapshots(records),metadataSaved=await saveCatalogMetadata(metadata);
  for(const record of records)await completeCollectorRequest(record.storeId,record.requestedUrl||record.product.url,record.checkedAt);
- return Response.json(saved);
+ return Response.json({...saved,metadata:metadataSaved});
 }catch(e){return Response.json({error:e instanceof Error?e.message:'Hata'},{status:e instanceof HttpError?e.status:400});}}
 export async function PATCH(request:Request){try{
  await authorized(request);

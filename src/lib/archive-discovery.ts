@@ -11,7 +11,8 @@ export type ArchiveProduct={key:string;name:string;group:string;sources:{storeId
 /** Group only identities backed by the merchant observation, never a name-only candidate. */
 export function archiveProducts(items:{storeId:string;preview:CatalogPreview}[],at=Date.now()){
  const groups=new Map<string,ArchiveProduct>();
- for(const {storeId,preview:p} of items.sort((a,b)=>Date.parse(b.preview.checkedAt)-Date.parse(a.preview.checkedAt))){
+ for(const {storeId,preview:original} of items.sort((a,b)=>Date.parse(b.preview.checkedAt)-Date.parse(a.preview.checkedAt))){
+  const p=original.canonicalUrl?{...original,url:original.canonicalUrl}:original;
   if(!displayablePreview(p,at)||!p.key||!p.name)continue;
   let group=groups.get(p.key);
   if(!group){group={key:p.key,name:p.name,group:catalogGroup(p.name),sources:[],previews:[]};groups.set(p.key,group);}
