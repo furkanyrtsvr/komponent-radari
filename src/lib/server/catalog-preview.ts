@@ -3,8 +3,8 @@ import { HttpError, list,listIn } from "./db";
 import { adapterFor } from "../../stores/registry";
 import {readProduct,pricePhase,snapshotSources,addressAliases} from './snapshots';
 import {enrichCatalogPreview} from '../catalog-metadata';
-import {refreshArchivePreviews} from '../archive-refresh';
-import {requestCollectorRefresh} from './collector-requests';
+import {refreshArchivePreviews,archiveRefreshStatus} from '../archive-refresh';
+import {requestCollectorRefresh,collectorPreviewJob} from './collector-requests';
 import {archivePreviews} from '../archive-preview';
 import {snapshotUsable} from '../catalog-snapshot';
 import {LIVE_TTL_MS} from '../pricing';
@@ -37,7 +37,7 @@ export type CatalogPreview = {
 
 const cache = new Map<string, {at:number; value:Promise<CatalogPreview>}>();
 
-export async function previewCatalogProducts(urls: string[], force = false) {
+export async function previewCatalogProducts(urls: string[], force = false, watch=false) {
   const phase=await pricePhase();
   const stores = await list<Store>("stores");
   if(phase==='B'){
@@ -48,7 +48,7 @@ export async function previewCatalogProducts(urls: string[], force = false) {
       const row=metadata.find(m=>m.store_id===store?.id&&addressAliases(preview.url).includes(m.url));
       try{return row?enrichCatalogPreview(preview,JSON.parse(row.raw_data).catalogMetadata,stores):preview;}catch{return preview;}
     });
-    return force?refreshArchivePreviews(enriched,stores,requestCollectorRefresh):enriched;
+    return force?refreshArchivePreviews(enriched,stores,requestCollectorRefresh):watch?archiveRefreshStatus(enriched,stores,collectorPreviewJob):enriched;
   }
   const unique = [...new Set(urls)].slice(0, 12);
   const results = await Promise.allSettled(

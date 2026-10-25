@@ -26,7 +26,7 @@ export function archivePage(products:ArchiveProduct[],options:{query:string;grou
  const filtered=products.map(p=>{
   const sources=p.sources.filter(s=>options.store==='all'||s.storeId===options.store),urls=new Set(sources.map(s=>s.url));
   return {...p,sources,previews:p.previews.filter(v=>urls.has(v.url))};
- }).filter(p=>p.sources.length&&p.previews.some(v=>v.image?.startsWith('https://'))&&(options.group==='all'||p.group===options.group)&&(!options.query||p.sources.some(s=>matches(s.name))||matches(p.name)));
+ }).filter(p=>p.sources.length&&(options.group==='all'||p.group===options.group)&&(!options.query||p.sources.some(s=>matches(s.name))||matches(p.name)));
  const chosen=filtered.slice(options.page*40,(options.page+1)*40);
  return {results:chosen.map(({previews,...product})=>product),previews:chosen.flatMap(p=>p.previews),count:filtered.length,hasMore:filtered.length>(options.page+1)*40};
 }

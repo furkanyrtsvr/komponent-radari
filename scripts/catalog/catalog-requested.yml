@@ -1,0 +1,28 @@
+name: Update requested product prices
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  # Serialize merchant crawling with the general collector, respecting delays.
+  group: merchant-price-archive
+  cancel-in-progress: false
+jobs:
+  requested:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm run install:ci
+      - name: Read only requested merchant pages
+        env:
+          CATALOG_INGEST_SECRET: ${{ secrets.CATALOG_INGEST_SECRET }}
+        run: |
+          test -n "$CATALOG_INGEST_SECRET" || exit 1
+          node --import tsx scripts/catalog/catalogue-b.ts --collect --requests-only --limit=8 --site=https://komponent-radari.equalwood4.chatgpt.site

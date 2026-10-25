@@ -21,6 +21,10 @@ export async function pendingCollectorRequests():Promise<CollectorRequest[]>{
   try{const u=safeStoreUrl(job.url,store.domain);u.hostname=store.domain;return [{id:job.id,storeId:job.store_id,url:u.href,requestedAt:job.created_at}];}catch{return [];}
  });
 }
+export async function collectorPreviewJob(store:{id:string;domain:string},raw:string){
+ const domain=storeCatalog.find(s=>s.id===store.id)?.domain||store.domain,u=safeStoreUrl(raw,domain);u.hostname=domain;u.hash='';
+ return one<CollectorJob>('scrape_jobs',{id:await accountId('collector:'+store.id+':'+u.href)});
+}
 export async function failCollectorRequest(id:string,requestedAt:string,error:string){
  const job=await one<CollectorJob>('scrape_jobs',{id});
  if(job&&collectorResultMatches(job,requestedAt))await update('scrape_jobs',{status:'collector_failed',error:error.slice(0,500),finished_at:new Date().toISOString()},{id,status:'collector_pending',created_at:requestedAt});

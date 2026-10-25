@@ -137,6 +137,8 @@ export function MerchantCatalog({
   const [failedImages, setFailedImages] = useState<string[]>([]);
   const [refreshPending,setRefreshPending]=useState(false);
   const [archiveReload,setArchiveReload]=useState(0);
+  const autoRequested=useRef('');
+  const [collectionMessage,setCollectionMessage]=useState('');
   const attemptedPreviews = useRef(new Set<string>());
   const previewLive = useRef(true);
   const previewPending = useRef(false);
@@ -262,10 +264,23 @@ export function MerchantCatalog({
   async function refreshSelected(queue=false){
     if(!selectedProduct||refreshPending)return;
     setRefreshPending(true);
-    try{const items=await api<CatalogPreview[]>('catalog/preview','POST',{urls:selectedProduct.sources.map(s=>s.url).slice(0,20),force:queue});setPreviews(current=>({...current,...Object.fromEntries(items.map(p=>[p.url,p]))}));}
-    catch(error){setStatus(current=>({...current,requestId:request.current,error:error instanceof Error?error.message:'Arşiv okunamadı.'}));}
+    try{const items=await api<CatalogPreview[]>('catalog/preview','POST',{urls:selectedProduct.sources.map(s=>s.url).slice(0,20),force:queue,watch:!queue});setPreviews(current=>({...current,...Object.fromEntries(items.map(p=>[p.url,p]))}));if(queue)setCollectionMessage(items.some(p=>p.collectorPending)?'Eksik sayfalar otomatik toplama sırasına alındı. Sonuç geldiğinde bu pencere kendiliğinden güncellenir.':'Mevcut kayıtlar ve son toplama durumu kontrol edildi.');}
+    catch(error){setCollectionMessage(error instanceof Error?error.message:'Toplama isteği kaydedilemedi. Yeniden dene.');}
     finally{setRefreshPending(false);}
   }
+  useEffect(()=>{
+    if(!selected){autoRequested.current='';setCollectionMessage('');return;}
+    if(phase!=='B'||autoRequested.current===selected.key)return;
+    if(selected.sources.every(s=>previews[s.url]?.archiveState==='fresh'))return;
+    autoRequested.current=selected.key;void refreshSelected(true);
+  },[selected?.key,phase]);
+  useEffect(()=>{
+    if(phase!=='B'||!selected)return;
+    const urls=selected.sources.filter(s=>previews[s.url]?.collectorPending).map(s=>s.url).slice(0,20);if(!urls.length)return;
+    let active=true,pending=false;
+    const timer=setInterval(()=>{if(pending)return;pending=true;void api<CatalogPreview[]>('catalog/preview','POST',{urls,watch:true}).then(items=>{if(active)setPreviews(current=>({...current,...Object.fromEntries(items.map(p=>[p.url,p]))}));}).catch(()=>{/* Retain the real observation and retry while this window stays open. */}).finally(()=>{pending=false;});},15000);
+    return()=>{active=false;clearInterval(timer);};
+  },[selected?.key,phase,previews]);
   const representativeSources=(row:IndexedProduct)=>{
     const perStore=new Map<string,Source>();
     const cost=(source:Source)=>{
@@ -320,12 +335,12 @@ export function MerchantCatalog({
           <h2>Ürünler</h2>
           <p>
             {manifest
-              ? archiveMode?`${status?.count?.toLocaleString('tr-TR')||'…'} fiyatlı ve görselli arşiv ürünü · ${manifest.stores.length} mağaza`:`${manifest.total.toLocaleString("tr-TR")} mağaza kaydı · ${manifest.stores.length} mağaza`
+              ? archiveMode?`${status?.count?.toLocaleString('tr-TR')||'…'} fiyatı arşivlenmiş ürün · ${manifest.stores.length} mağaza`:`${manifest.total.toLocaleString("tr-TR")} mağaza kaydı · ${manifest.stores.length} mağaza`
               : "Katalog yükleniyor…"}
           </p>
           {phase==='B'&&<p>Fiyatlar ortak arşivden okunur. 12 saatten eski fiyatlar tarihleriyle gösterilir; güncel teklif veya stok sayılmaz.</p>}
         </div>
-        {phase==='B'&&<label>Görünüm<select aria-label="Katalog görünümü" value={catalogSource} onChange={event=>{setCatalogSource(event.target.value);setPage(0);}}><option value="archive">Fiyatı ve görseli olanlar</option><option value="all">Tüm katalog · eksikler dahil</option></select></label>}
+        {phase==='B'&&<label>Görünüm<select aria-label="Katalog görünümü" value={catalogSource} onChange={event=>{setCatalogSource(event.target.value);setPage(0);}}><option value="archive">Fiyatı arşivlenmiş ürünler</option><option value="all">Tüm ürün bağlantıları · fiyat bekleyenler dahil</option></select></label>}
         <label>
           Mağaza
           <select
@@ -448,7 +463,7 @@ export function MerchantCatalog({
       {status?.done && !rows.length && (
         <div className="merchant-empty">
           <PackageSearch size={38} />
-          <strong>{archiveMode?'Fiyatı ve görseli tamamlanmış arşiv kaydı bulunamadı':'Ürün bulunamadı'}</strong>
+          <strong>{archiveMode?'Doğrulanmış fiyat kaydı bulunamadı':'Ürün bulunamadı'}</strong>
           <span>{archiveMode?'Taranmamış ürünler için Tüm katalog görünümüne geçebilirsin.':'Model kodunu veya ürün adını farklı yazarak tekrar ara.'}</span>
           {archiveMode&&<button onClick={()=>{setCatalogSource('all');setPage(0);}}>Tüm katalogda ara</button>}
         </div>
@@ -502,6 +517,7 @@ export function MerchantCatalog({
                   <DialogDescription>{selectedProduct.name}</DialogDescription>
                 </DialogHeader>
               </div>
+              {collectionMessage&&<p role="status" className="muted small">{collectionMessage}</p>}
               <div className="merchant-dialog-sources">
                 {representativeSources(selectedProduct).map((source) => (
                   <div key={source.url}>
@@ -527,7 +543,7 @@ export function MerchantCatalog({
                   </div>
                 ))}
               </div>
-              {phase==='B'&&selectedProduct.sources.some(s=>!previews[s.url]?.price||previews[s.url]?.archiveState==='expired')&&<><p className="muted small">Ürün bağlantısının katalogda olması, fiyatının toplandığı anlamına gelmez. Eksik sayfaları öncelikli toplama sırasına alabilirsin; doğrulanmadan fiyat eklenmez.</p><button className="merchant-dialog-refresh" disabled={refreshPending||busy} onClick={()=>void refreshSelected(true)}>{refreshPending?'Toplama isteği kaydediliyor…':'Eksik / eski fiyatları toplama sırasına al'}</button></>}
+              {phase==='B'&&selectedProduct.sources.some(s=>!previews[s.url]?.price||previews[s.url]?.archiveState==='expired')&&<><p className="muted small">Bu sayfanın fiyatı henüz doğrulanmamış. Pencere açılınca otomatik toplama isteği gönderilir; doğrulanmış sonuç geldiğinde burada gösterilir.</p><button className="merchant-dialog-refresh" disabled={refreshPending||busy} onClick={()=>void refreshSelected(true)}>{refreshPending?'Toplama isteği kaydediliyor…':'Eksik / eski fiyatları toplama sırasına al'}</button></>}
               <button className="merchant-dialog-refresh" disabled={previewPending.current || busy || refreshPending} onClick={() => {
                 if(phase==='B'){void refreshSelected(false);return;}
                 selectedProduct.sources.forEach(source => attemptedPreviews.current.delete(source.url));

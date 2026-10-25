@@ -13,3 +13,13 @@ export async function refreshArchivePreviews(values:CatalogPreview[],stores:Stor
  }
  return values.map(p=>requested.get(p.url)||p);
 }
+/** Polling reads job state without creating or retrying work. */
+export async function archiveRefreshStatus(values:CatalogPreview[],stores:Store[],read:(store:Store,url:string)=>Promise<{status:string;error?:string|null}|undefined>){
+ return Promise.all(values.slice(0,20).map(async p=>{
+  if(p.archiveState==='fresh')return p;
+  const host=new URL(p.url).hostname.replace(/^www\./,''),store=stores.find(s=>s.enabled!==false&&s.enabled!==0&&s.domain.replace(/^www\./,'')===host);if(!store)return p;
+  try{const job=await read(store,p.url);if(!job)return p;
+   return {...p,collectorPending:job.status==='collector_pending',message:job.status==='collector_pending'?'Bu ürün otomatik toplama sırasında. Doğrulanırsa fiyat ve görsel burada kendiliğinden güncellenecek.':job.status==='collector_failed'?'Son okuma başarısız: '+(job.error||'Fiyat doğrulanamadı.'):p.message};
+  }catch{return p;}
+ }));
+}

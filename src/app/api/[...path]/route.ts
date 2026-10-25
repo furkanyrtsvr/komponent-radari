@@ -156,8 +156,8 @@ async function handle(request: Request, context: Context) {
     if (route === "catalog/preview" && method === "POST") {
       await rateLimit("catalog-preview:" + u.id, 60);
       if(body.force===true)await rateLimit('catalog-request:'+u.id,6);
-      const urls = z.array(z.string().url().max(2000)).min(1).max(await pricePhase()==='B'?body.force===true?20:ARCHIVE_PREVIEW_BATCH:12).parse(body.urls);
-      return Response.json(await previewCatalogProducts(urls, body.force === true));
+      const urls = z.array(z.string().url().max(2000)).min(1).max(await pricePhase()==='B'?body.force===true||body.watch===true?20:ARCHIVE_PREVIEW_BATCH:12).parse(body.urls);
+      return Response.json(await previewCatalogProducts(urls, body.force === true, body.watch === true));
     }
     if (route === "bootstrap") {
       let carts = (await userCarts(u.id)).filter(cart=>cart.data_source===source);
