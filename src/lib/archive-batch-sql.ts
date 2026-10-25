@@ -1,0 +1,2 @@
+export const COPY_ARCHIVE_BATCH_SQL="INSERT INTO archive_batch_rows(id,batch_id,source_id,store_id,url,checked_at,payload) SELECT ?||':'||id,?,id,store_id,url,checked_at,payload FROM catalog_snapshots WHERE checked_at<=?";
+export const ACTIVATE_ARCHIVE_SQL="INSERT INTO catalog_collection_runs(id,updated_at,payload) VALUES('archive-active',?,?) ON CONFLICT(id) DO UPDATE SET updated_at=excluded.updated_at,payload=excluded.payload WHERE json_extract(excluded.payload,'$.cutoff')>json_extract(catalog_collection_runs.payload,'$.cutoff')";

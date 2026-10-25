@@ -43,6 +43,13 @@
       "when": 1791022348743,
       "tag": "0005_absent_meltdown",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1792923092748,
+      "tag": "0006_funny_lorna_dane",
+      "breakpoints": true
     }
   ]
 }

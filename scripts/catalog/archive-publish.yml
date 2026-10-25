@@ -1,0 +1,49 @@
+name: Publish prepared B catalog
+on:
+  schedule:
+    - cron: '6 0,12 * * *'
+  workflow_dispatch:
+    inputs:
+      minutes:
+        description: Maximum image preparation minutes; incomplete images stay outside B
+        default: '170'
+        required: true
+permissions:
+  contents: read
+concurrency:
+  group: merchant-price-archive
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 210
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm run install:ci
+      - uses: actions/cache/restore@v4
+        with:
+          path: work/archive-publisher/images.sqlite
+          key: prepared-archive-images-v1-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: prepared-archive-images-v1-
+      - name: Prepare every verified observation and publish one complete version
+        env:
+          CATALOG_INGEST_SECRET: ${{ secrets.CATALOG_INGEST_SECRET }}
+          PREPARE_MINUTES: ${{ inputs.minutes || '170' }}
+        run: |
+          test -n "$CATALOG_INGEST_SECRET" || exit 1
+          node --import tsx scripts/catalog/publish-archive.ts --minutes="$PREPARE_MINUTES"
+      - uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: work/archive-publisher/images.sqlite
+          key: prepared-archive-images-v1-${{ github.run_id }}-${{ github.run_attempt }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: archive-publication-report
+          path: work/archive-publisher/publication.json
+          if-no-files-found: ignore

@@ -7,6 +7,12 @@ import {
   uniqueIndex,
 } from "drizzle-orm/sqlite-core";
 const pk = () => text("id").primaryKey();
+export const archiveBatches=sqliteTable('archive_batches',{
+ id:pk(),state:text().notNull().default('building'),created_at:text().notNull(),cutoff:text().notNull(),published_at:text(),manifest:text(),
+});
+export const archiveBatchRows=sqliteTable('archive_batch_rows',{
+ id:pk(),batch_id:text().notNull(),source_id:text().notNull(),store_id:text().notNull(),url:text().notNull(),checked_at:text().notNull(),payload:text().notNull(),ready:integer().notNull().default(0),image_key:text(),
+},t=>[index('archive_batch_source').on(t.batch_id,t.source_id),index('archive_batch_url').on(t.batch_id,t.url)]);
 export const catalogCollectionRuns=sqliteTable('catalog_collection_runs',{
  id:pk(),updated_at:text().notNull(),payload:text().notNull(),
 });
