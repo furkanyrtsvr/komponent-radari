@@ -1,0 +1,9 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import sharp from 'sharp';
+import {isWebpAsset,imagePreparationAllowed} from '../src/lib/archive-asset-format';
+import {archiveProgressSummary} from '../src/lib/archive-progress-summary';
+import type {BootstrapJob} from '../src/lib/archive-bootstrap';
+test('valid WebP files with a multibyte-looking RIFF size are accepted bytewise',async()=>{const image=await sharp({create:{width:8,height:8,channels:3,background:'#178562'}}).webp().toBuffer(),target=0x80c2+8,padding=Buffer.alloc(target-image.length);padding.write('JUNK',0);padding.writeUInt32LE(padding.length-8,4);const bytes=Buffer.concat([image,padding]);bytes.writeUInt32LE(bytes.length-8,4);assert.equal((await sharp(bytes).metadata()).format,'webp');assert.notEqual(new TextDecoder().decode(bytes.subarray(0,12)).slice(8),'WEBP');assert.equal(isWebpAsset(bytes),true);assert.equal(isWebpAsset(Buffer.from('RIFF1234JPEG')),false);assert.equal(isWebpAsset(Buffer.from('RIFF')),false);});
+test('expired preparation never starts another missing-image lookup but can reuse cached images',()=>{assert.equal(imagePreparationAllowed(false,100,101),false);assert.equal(imagePreparationAllowed(true,100,101),true);assert.equal(imagePreparationAllowed(false,100,99),true);});
+test('persisted progress summary contains current totals without worker lease credentials',()=>{const job={revision:8,state:'running',stage:'images',updatedAt:'2026-10-25T18:00:00Z',leaseId:'private',progress:{stores:[{attempted:5,indexed:10,verified:4,unseen:5},{attempted:4,indexed:8,verified:3,unseen:4}]}} as BootstrapJob;const s=archiveProgressSummary(job);assert.equal(s.attempted,9);assert.equal(s.priceRecords,7);assert.equal(s.indexed,18);assert.equal(s.unseen,9);assert.equal('leaseId' in s,false);});

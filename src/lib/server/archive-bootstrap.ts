@@ -1,3 +1,4 @@
+import {archiveProgressSummary} from '../archive-progress-summary';
 import {binding,one,HttpError,config} from './db';
 import {activeArchive,archiveBucket} from './ready-archive';
 import {storeCatalog} from '../catalog';
@@ -5,7 +6,8 @@ import manifest from '../../../public/catalog/manifest.json';
 import {bootstrapActive,claimable,finishBootstrap,type BootstrapJob} from '../archive-bootstrap';
 const key='archive-bootstrap';
 export async function bootstrapJob(){const row=await one<{payload:string}>('catalog_collection_runs',{id:key});return row?JSON.parse(row.payload) as BootstrapJob:null;}
-async function replace(old:BootstrapJob,next:BootstrapJob){const r=await binding().prepare("UPDATE catalog_collection_runs SET payload=?,updated_at=? WHERE id=? AND json_extract(payload,'$.revision')=?").bind(JSON.stringify(next),next.updatedAt,key,old.revision).run();if(!r.meta.changes)throw new HttpError(409,'İşin durumu değişti. Yeniden yükle.');return next;}
+async function replace(old:BootstrapJob,next:BootstrapJob){const r=await binding().prepare("UPDATE catalog_collection_runs SET payload=?,updated_at=? WHERE id=? AND json_extract(payload,'$.revision')=?").bind(JSON.stringify(next),next.updatedAt,key,old.revision).run();if(!r.meta.changes)throw new HttpError(409,'İşin durumu değişti. Yeniden yükle.');await saveProgressSummary(next);return next;}
+async function saveProgressSummary(job:BootstrapJob){await binding().prepare("INSERT INTO catalog_collection_runs(id,updated_at,payload) VALUES('archive-bootstrap-summary',?,?) ON CONFLICT(id) DO UPDATE SET updated_at=excluded.updated_at,payload=excluded.payload WHERE COALESCE(json_extract(excluded.payload,'$.revision'),0)>=COALESCE(json_extract(catalog_collection_runs.payload,'$.revision'),0)").bind(job.updatedAt,JSON.stringify(archiveProgressSummary(job))).run();}
 export async function bootstrapView(){const job=await bootstrapJob(),archive=await activeArchive();const {leaseId,leaseUntil,...safe}=job||{};return {job:job?safe:null,archive,configured:config('CATALOG_INGEST_SECRET').length>=32,excluded:['ozdisan'],stores:storeCatalog.filter(s=>s.id!=='ozdisan').map(s=>({id:s.id,name:s.name,indexed:manifest.stores.find(x=>x.id===s.id)?.count||0}))};}
 export async function startBootstrap(){
  if(config('CATALOG_INGEST_SECRET').length<32)throw new HttpError(503,'Otomatik toplayıcı bağlantısı hazır değil.');

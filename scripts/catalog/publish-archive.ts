@@ -1,3 +1,4 @@
+import {imagePreparationAllowed} from '../../src/lib/archive-asset-format';
 import {fairImageQueue,reusableImage} from './archive-image-queue';
 import {DatabaseSync} from 'node:sqlite';
 import {mkdirSync,writeFileSync} from 'node:fs';
@@ -33,6 +34,7 @@ async function run(){
  await Promise.all(Array.from({length:12},async()=>{for(;;){const index=at++;if(index>=entries.length)return;const [source,linked]=entries[index];
   try{
    let image=cache.prepare('SELECT * FROM images WHERE url=?').get(source) as {key:string;bytes:number;original_bytes:number;checked_at:string}|undefined;
+   if(!imagePreparationAllowed(reusableImage(image),deadline))throw new Error('Görsel hazırlama süresi doldu; sonraki turda devam edecek.');
    if(!reusableImage(image)){const known=await call('archive-build?imageUrl='+encodeURIComponent(source));if(known.image){image={...known.image,checked_at:new Date().toISOString()};cache.prepare('INSERT OR REPLACE INTO images VALUES(?,?,?,?,?)').run(source,image!.key,image!.bytes,image!.original_bytes,image!.checked_at);}}
    if(!reusableImage(image)){const bytes=await downloadProductImage(source,deadline),prepared=await compactProductImage(bytes);await call('archive-assets/'+prepared.key,undefined,prepared.bytes);image={key:prepared.key,bytes:prepared.bytes.length,original_bytes:prepared.originalBytes,checked_at:new Date().toISOString()};cache.prepare('INSERT OR REPLACE INTO images VALUES(?,?,?,?,?)').run(source,image.key,image.bytes,image.original_bytes,image.checked_at);}
    imageStats.set(image.key,{bytes:image.bytes,original:image.original_bytes});

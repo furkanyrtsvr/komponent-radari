@@ -1,0 +1,2 @@
+import type {BootstrapJob} from './archive-bootstrap';
+export function archiveProgressSummary(job:BootstrapJob){return {revision:job.revision,state:job.state,stage:job.stage,updatedAt:job.updatedAt,checkpointAt:job.checkpointAt||null,attempted:job.progress.stores.reduce((n,s)=>n+s.attempted,0),indexed:job.progress.stores.reduce((n,s)=>n+s.indexed,0),priceRecords:job.progress.stores.reduce((n,s)=>n+s.verified,0),unseen:job.progress.stores.reduce((n,s)=>n+s.unseen,0)};}
