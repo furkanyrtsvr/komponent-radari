@@ -1,3 +1,4 @@
+import {fairImageQueue} from './archive-image-queue';
 import {DatabaseSync} from 'node:sqlite';
 import {mkdirSync,writeFileSync} from 'node:fs';
 import {gzipSync} from 'node:zlib';
@@ -25,7 +26,7 @@ async function run(){
  for(const row of rows.sort((a,b)=>b.checked_at.localeCompare(a.checked_at))){
   try{const record=upgradeSnapshotReader(validateSnapshot(JSON.parse(row.payload),storeCatalog,Date.parse(row.checked_at)));if(!record?.product.image||record.storeId!==row.store_id||record.checkedAt!==row.checked_at)throw new Error('Doğrulanmış ürün/görsel kaynağı yok.');const address=new URL(record.product.url);address.hostname=address.hostname.replace(/^www\./,'');address.hash='';if(!address.search)address.pathname=canonicalMerchantPath(address.hostname,address.pathname);const key=record.storeId+':'+address.href;if(seenUrls.has(key))throw new Error('Aynı adresin daha yeni gözlemi kullanıldı.');seenUrls.add(key);row.url=record.product.url;row.record=record;const list=jobs.get(record.product.image)||[];list.push(row);jobs.set(record.product.image,list);}catch(e){failures.push({url:row.url,reason:String(e)});}
  }
- const entries=[...jobs],ready:any[]=[];let at=0;
+ const entries=fairImageQueue([...jobs]),ready:any[]=[];let at=0;
  await Promise.all(Array.from({length:12},async()=>{for(;;){const index=at++;if(index>=entries.length)return;const [source,linked]=entries[index];
   try{
    let image=cache.prepare('SELECT * FROM images WHERE url=?').get(source) as {key:string;bytes:number;original_bytes:number;checked_at:string}|undefined;

@@ -49,3 +49,10 @@ test('ready browser catalog verifies compressed files and never invents missing 
  for(const change of [{price:null},{image:null},{image:'https://merchant.example/image.jpg'},{checkedAt:'2026-10-26T00:00:00Z'}])assert.equal(searchReadyProducts([{...product,previews:[{...product.previews[0],...change}]}],options,at).count,0);
  assert.equal(searchReadyProducts([product],{...options,store:'other'},at).count,0);
 });
+
+
+test('image preparation alternates hosts before revisiting a slow merchant',async()=>{
+ const {fairImageQueue}=await import('../scripts/catalog/archive-image-queue');
+ const input:[string,number][]=[['https://slow.example/1',1],['https://slow.example/2',2],['https://slow.example/3',3],['https://fast.example/1',4],['https://other.example/1',5]];
+ assert.deepEqual(fairImageQueue(input).map(x=>x[1]),[1,4,5,2,3]);assert.equal(input[1][1],2);
+});
