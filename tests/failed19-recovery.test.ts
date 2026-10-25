@@ -56,6 +56,15 @@ test('Komponentci stock-out still cannot become a purchasable quote when its ord
 });
 const stores=[{id:'komponentci',domain:'www.komponentci.net'}];
 const metadata={storeId:'komponentci',url:ku,name:'0412 Yüksek Hızlı Drone Motoru',image:'https://platincdn.com/3106/pictures/product.jpg',observedAt,reason:'Satış birimi doğrulanamadı.'};
+
+test('generic Ozdisan share artwork is rejected on ingest and when reading previously stored metadata',()=>{
+ const ozStores=[{id:'ozdisan',domain:'www.ozdisan.com'}],url='https://www.ozdisan.com/p/DIN41612-711/harting-09061486925222-1068190';
+ const generic={...metadata,storeId:'ozdisan',url,name:'09061486925222',image:'https://www.ozdisan.com/images/ozdisan-share-default.png'};
+ assert.throws(()=>validateCatalogMetadata(generic,ozStores,at),/ürün fotoğrafı değildir/);
+ const empty:CatalogPreview={url,name:'',image:null,key:'',price:null,stockStatus:'unknown',checkedAt:'',message:'',archiveState:'missing'};
+ assert.deepEqual(enrichCatalogPreview(empty,generic,ozStores,at),empty);
+ assert.equal(validateCatalogMetadata({...generic,image:'https://www.ozdisan.com/images/products/09061486925222.jpg'},ozStores,at).name,generic.name);
+});
 test('image-only metadata cannot contain a price, foreign product URL or future check time',()=>{
  assert.equal(validateCatalogMetadata(metadata,stores,at).name,metadata.name);
  for(const change of [{price:4337},{checkedAt:observedAt},{url:'https://foreign.example/p'},{observedAt:new Date(at+1).toISOString()},{image:'http://cdn.example/p.jpg'}])assert.throws(()=>validateCatalogMetadata({...metadata,...change},stores,at));

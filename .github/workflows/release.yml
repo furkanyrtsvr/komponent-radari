@@ -23,7 +23,7 @@ jobs:
       - run: node scripts/ensure-workerd-linux.mjs
       - name: Requested failed-page recovery checks
         if: github.event_name == 'push' && contains(github.event.head_commit.message, '[failed19-only]')
-        run: node --import tsx --test tests/failed19-recovery.test.ts
+        run: node --import tsx --test --test-name-pattern="${{ contains(github.event.head_commit.message, '[image-only]') && 'generic Ozdisan' || '.' }}" tests/failed19-recovery.test.ts
       - name: Usual regression suite
         if: github.event_name != 'push' || !contains(github.event.head_commit.message, '[failed19-only]')
         run: npm test

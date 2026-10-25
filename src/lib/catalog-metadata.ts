@@ -7,7 +7,9 @@ export function validateCatalogMetadata(input:unknown,stores:{id:string;domain:s
  const p=catalogMetadataSchema.parse(input),store=stores.find(s=>s.id===p.storeId),url=new URL(p.url);
  if(!store||url.protocol!=='https:'||url.username||url.password||url.port||url.hostname.replace(/^www\./,'')!==store.domain.replace(/^www\./,''))throw new Error('Görsel kaydının mağaza adresi geçersiz.');
  if(Date.parse(p.observedAt)>at||at-Date.parse(p.observedAt)>12*3600000)throw new Error('Görsel gözlem tarihi geçersiz.');
- if(p.image){const image=new URL(p.image);if(image.protocol!=='https:'||image.username||image.password||image.port)throw new Error('Görsel adresi geçersiz.');}
+ if(p.image){const image=new URL(p.image);if(image.protocol!=='https:'||image.username||image.password||image.port)throw new Error('Görsel adresi geçersiz.');
+  if(image.hostname.replace(/^www\./,'')==='ozdisan.com'&&image.pathname.toLowerCase()==='/images/ozdisan-share-default.png')throw new Error('Özdisan genel paylaşım resmi ürün fotoğrafı değildir.');
+ }
  url.hostname=store.domain;url.hash='';return {...p,url:url.href};
 }
 /** An image-only observation cannot add a price or change its check date. */
