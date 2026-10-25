@@ -6,7 +6,7 @@ on:
     inputs:
       minutes:
         description: Maximum image preparation minutes; incomplete images stay outside B
-        default: '170'
+        default: '8'
         required: true
 permissions:
   contents: read
@@ -24,25 +24,32 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm run install:ci
+      - name: Yield to the active initial archive
+        id: priority
+        env:
+          CATALOG_INGEST_SECRET: ${{ secrets.CATALOG_INGEST_SECRET }}
+        run: node --import tsx scripts/catalog/publication-priority.ts
       - uses: actions/cache/restore@v4
+        if: steps.priority.outputs.publish == 'true'
         with:
           path: work/archive-publisher/images.sqlite
           key: prepared-archive-images-v1-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: prepared-archive-images-v1-
       - name: Prepare every verified observation and publish one complete version
+        if: steps.priority.outputs.publish == 'true'
         env:
           CATALOG_INGEST_SECRET: ${{ secrets.CATALOG_INGEST_SECRET }}
-          PREPARE_MINUTES: ${{ inputs.minutes || '170' }}
+          PREPARE_MINUTES: ${{ inputs.minutes || '8' }}
         run: |
           test -n "$CATALOG_INGEST_SECRET" || exit 1
           node --import tsx scripts/catalog/publish-archive.ts --minutes="$PREPARE_MINUTES"
       - uses: actions/cache/save@v4
-        if: always()
+        if: always() && steps.priority.outputs.publish == 'true'
         with:
           path: work/archive-publisher/images.sqlite
           key: prepared-archive-images-v1-${{ github.run_id }}-${{ github.run_attempt }}
       - uses: actions/upload-artifact@v4
-        if: always()
+        if: always() && steps.priority.outputs.publish == 'true'
         with:
           name: archive-publication-report
           path: work/archive-publisher/publication.json

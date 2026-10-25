@@ -30,3 +30,10 @@ Her tur sonunda ürün sırası ve okuma sonuçlarını içeren SQLite kontrol n
 Panel denenmiş bağlantı, fiyatı doğrulanmış kayıt, hazır teklif, henüz denenmemiş bağlantı ve son denemede hata veren kayıtları ayrı gösterir. Hiç ilerleme olmayan üç turdan sonra iş inceleme durumuna geçer. Sonuç eksikse tamamlandı sayılmaz. Duraklatma isteği çalışan turu güvenli kayda geçirir.
 
 Yeni odaklı kontroller: `node --import tsx --test tests/archive-bootstrap.test.ts`.
+
+
+## Tarama sırası ve görsel önceliği
+
+Etkin ilk tarama varsa bağımsız hazır katalog yayımlama işi öncelik kontrolüyle beklemeden çıkar. İlk tarama kendi kısa görsel hazırlama adımını yürütür. Normal bağımsız hazırlamanın varsayılan görsel süresi 8 dakikadır. Her iki iş aynı hazırlanmış görsel önbelleğini geri yükler ve kaydeder; kesilen görsel hazırlığında tamamlanan indirmeler sonraki tarama turunda yeniden kullanılır.
+
+Panel sırada beklemeyi fiili çalışmadan ayırır. Bekleme sırasında denenen bağlantı sayısının artmadığını ve kaç dakika beklediğini açıkça gösterir. Görsel aşamasında da sayacın sabit kalabileceği belirtilir.

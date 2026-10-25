@@ -42,6 +42,11 @@ jobs:
           path: work/catalogue-b/catalogue.sqlite
           key: merchant-archive-v2-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: merchant-archive-v2-
+      - uses: actions/cache/restore@v4
+        with:
+          path: work/archive-publisher/images.sqlite
+          key: prepared-archive-images-v1-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: prepared-archive-images-v1-
       - name: Continue the administrator's initial archive
         id: bootstrap
         env:
@@ -72,3 +77,8 @@ jobs:
         with:
           path: work/catalogue-b/catalogue.sqlite
           key: merchant-archive-v2-${{ github.run_id }}-${{ github.run_attempt }}
+      - uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: work/archive-publisher/images.sqlite
+          key: prepared-archive-images-v1-${{ github.run_id }}-${{ github.run_attempt }}
