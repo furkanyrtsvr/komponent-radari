@@ -2463,6 +2463,10 @@ h1 {
 .comparison-coverage { padding: 16px; background: #54a87912; border: 1px solid #54a87945; border-radius: 10px; margin-bottom: 16px; font-size: 13px; line-height: 1.7; }
 .allocation-layout { grid-template-columns: 1fr; }
 .merchant-catalog { margin-bottom: 28px; }
+.cart-search-results { min-width: 0; }
+.cart-search-results .merchant-catalog-head { flex-wrap: wrap; align-items: stretch; }
+.cart-search-results .merchant-catalog-head > div { flex: 1 1 100%; min-width: 0; }
+.cart-search-results .merchant-catalog-head label { flex: 1 1 200px; min-width: 0; }
 .merchant-catalog-head { display: flex; justify-content: space-between; gap: 24px; align-items: end; padding: 22px 24px; border: 1px solid var(--border); border-radius: 14px 14px 0 0; background: linear-gradient(135deg, color-mix(in srgb, var(--card) 92%, #dff6e9), var(--card)); }
 .catalog-kicker { display: block; margin-bottom: 5px; color: #16714a; font-size: 12px; font-weight: 750; letter-spacing: .09em; }
 .merchant-catalog-head h2 { font-size: 30px; line-height: 1.08; font-weight: 760; margin: 0 0 5px; }
