@@ -1,5 +1,6 @@
 'use client';
 import {useEffect,useState} from 'react';
+import {rememberVerifiedAccount} from '@/lib/returning-account';
 import {configureAuth,authClient,api} from '@/lib/client';
 import {chatgptLoginHref,safeAuthReturn} from '@/lib/auth-return';
 export default function Complete(){
@@ -12,6 +13,7 @@ export default function Complete(){
     if(!identity.authenticated)throw new Error('ChatGPT girişinden dönüldü ancak siteye doğrulanmış oturum ulaşmadı. Siteyi Chrome veya Edge’de açıp aynı ChatGPT hesabıyla yeniden giriş yap. Misafir sepetin korunuyor.');
     const account=await api<{authenticated:boolean}>('auth/session','POST',{});
     if(!account.authenticated)throw new Error('Hesap doğrulanamadı. Misafir sepetin korunuyor; yeniden giriş yap.');
+    rememberVerifiedAccount();
    }else{
     await configureAuth();const client=authClient();if(!client)throw new Error('Bu bağlantıyla giriş doğrulanamadı. ChatGPT ile yeniden giriş yap.');
     const {data,error}=await client.auth.getSession();if(error)throw error;if(!data.session)throw new Error('Giriş tamamlanamadı. Yeniden giriş yap.');

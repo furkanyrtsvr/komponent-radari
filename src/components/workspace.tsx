@@ -1,4 +1,6 @@
 "use client";
+import {rememberVerifiedAccount,forgetRememberedAccount} from '@/lib/returning-account';
+import {restoreReturningAccount} from '@/lib/client';
 import {chatgptLoginHref} from "@/lib/auth-return";
 import { useState, useEffect, useRef, useMemo, type ReactNode } from "react";
 import {
@@ -108,7 +110,7 @@ import {emptyFeedbackContext,type FeedbackContext} from '@/lib/feedback';
 import {comparisonFeedback} from '@/lib/feedback-comparison';
 import { csvCell } from "@/lib/bom";
 type Boot = {
-  user: { id: string; name: string; admin: boolean;email:string;authenticated:boolean };
+  user: { id: string; name: string; admin: boolean;email:string;authenticated:boolean;authProvider?:'chatgpt'|null };
   demo: boolean;
   pricePhase:'A'|'B';
   products: Product[];
@@ -312,10 +314,13 @@ export default function Workspace({
       setStartupMessage('Ürün kataloğu ve sepetlerin yükleniyor.');
       const c = await configureAuth(()=>setStartupMessage('Bağlantı yavaş yanıt veriyor. Açılış otomatik olarak yeniden deneniyor…'));
       setConfig(c);
+      if(initial&&!c.demo&&await restoreReturningAccount()){setStartupMessage('Kayıtlı hesabın güvenli girişle yeniden doğrulanıyor…');return;}
+
       const cid=focusedCartId || (!initial ? latestCart.current?.id : undefined);
       const d = await api<Boot>(`bootstrap${cid ? `?cartId=${encodeURIComponent(cid)}` : ""}`);
       if(version!==loadVersion.current)return;
       setData(d);
+      if(d.user.authProvider==='chatgpt')rememberVerifiedAccount();
       setError("");
       if (initial) {
         setExact(d.demo);
@@ -2213,7 +2218,7 @@ export default function Workspace({
             {urlResult && <LinkComparison result={urlResult} busy={!!busy} editable={!!editable} onExclude={(offerId,excluded)=>void excludeOffer(urlResult.product.id,offerId,excluded)}/>}
           </>}
           {modal === "login" && <div className="account-panel">
-            {data?.user.authenticated ? <><h3>{data.user.name}</h3><p>{data.user.email}</p><p>Sepetlerin, favorilerin ve takiplerin hesabında saklanır. Aynı hesapla başka cihazda giriş yapabilirsin.</p><a className="account-login" href="/signout-with-chatgpt?return_to=%2F" target="_top">Çıkış yap</a></> : <><p>Üye ol veya giriş yap; mevcut misafir sepetin hesabına aktarılır.</p><a className="account-login" href={chatgptLoginHref(typeof location!=="undefined"?location.pathname:"/")} target="_top">ChatGPT ile üye ol / giriş yap</a><p className="muted small">Güvenli girişten sonra aynı hesapla bütün cihazlarında sepetlerine ulaşabilirsin.</p></>}
+            {data?.user.authenticated ? <><h3>{data.user.name}</h3><p>{data.user.email}</p><p>Sepetlerin, favorilerin ve takiplerin hesabında saklanır. Bu tarayıcıda hesabın hatırlanır; siteyi yeniden açtığında güvenli oturumunla devam edilir. Aynı hesapla başka cihazda da giriş yapabilirsin.</p><a className="account-login" onClick={()=>forgetRememberedAccount()} href="/signout-with-chatgpt?return_to=%2F" target="_top">Çıkış yap</a></> : <><p>Üye ol veya giriş yap; mevcut misafir sepetin hesabına aktarılır.</p><a className="account-login" href={chatgptLoginHref(typeof location!=="undefined"?location.pathname:"/")} target="_top">ChatGPT ile üye ol / giriş yap</a><p className="muted small">Güvenli girişten sonra aynı hesapla bütün cihazlarında sepetlerine ulaşabilirsin.</p></>}
             {config?.googleConfigured && !data?.user.authenticated && <Button variant="outline" onClick={()=>void work("login",async()=>{const {error}=await authClient()!.auth.signInWithOAuth({provider:"google",options:{redirectTo:location.origin+"/auth/complete"}});if(error)throw error;})}>Google ile devam et</Button>}
           </div>}
           {modal === "alert" && detail && (

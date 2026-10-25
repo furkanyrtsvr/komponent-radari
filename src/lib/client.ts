@@ -1,3 +1,4 @@
+import {hasRememberedAccount,returningAccountRedirect} from './returning-account';
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import {requestError,startupReader} from "./startup";
 let auth: SupabaseClient | null = null;
@@ -63,4 +64,20 @@ export async function api<T>(
     throw e;
   }
   return data as T;
+}
+
+let returningAccountCheck:Promise<boolean>|undefined;
+/** Recover the platform's own sign-in before creating a new guest workspace. */
+export function restoreReturningAccount(){
+ if(typeof window==='undefined')return Promise.resolve(false);
+ if(returningAccountCheck)return returningAccountCheck;
+ returningAccountCheck=(async()=>{
+  let local:Storage,session:Storage;try{local=window.localStorage;session=window.sessionStorage;}catch{return false;}
+  if(!hasRememberedAccount(local))return false;
+  if(auth&&(await auth.auth.getSession()).data.session)return false;
+  const identity=await api<{authenticated:boolean}>('auth/session');
+  const target=returningAccountRedirect(local,session,identity.authenticated,location.pathname+location.search);
+  if(!target)return false;
+  window.location.assign(target);return true;
+ })();returningAccountCheck.catch(()=>{returningAccountCheck=undefined;});return returningAccountCheck;
 }

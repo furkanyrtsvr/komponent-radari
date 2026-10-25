@@ -186,7 +186,7 @@ async function handle(request: Request, context: Context) {
       const products=[...new Map([...initialProducts,...cartProducts].map(product=>[product.id,product])).values()];
       const offers=await offersForProducts(products,source,cart.offerSelections);
       return Response.json({
-        user: { id: u.id, name: u.display_name, admin: isAdmin(u),email:u.email,authenticated:Boolean(u.email) },
+        user: { id: u.id, name: u.display_name, admin: isAdmin(u),email:u.email,authenticated:Boolean(u.email),authProvider:(await getChatGPTUser(request))?'chatgpt':null },
         demo: source === "demo",
         pricePhase:await pricePhase(),
         products,
