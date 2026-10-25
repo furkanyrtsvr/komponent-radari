@@ -1,3 +1,4 @@
+import {readyPreviews} from './ready-archive';
 import type { Store } from "../domain";
 import { HttpError, list,listIn } from "./db";
 import { adapterFor } from "../../stores/registry";
@@ -40,16 +41,7 @@ const cache = new Map<string, {at:number; value:Promise<CatalogPreview>}>();
 export async function previewCatalogProducts(urls: string[], force = false, watch=false) {
   const phase=await pricePhase();
   const stores = await list<Store>("stores");
-  if(phase==='B'){
-    const values=await archivePreviews(urls,stores,snapshotSources),missing=values.filter(p=>!p.image);
-    const metadata=await listIn<{store_id:string;url:string;raw_data:string}>('store_products','url',missing.flatMap(p=>addressAliases(p.url)));
-    const enriched=values.map(preview=>{
-      const store=stores.find(s=>s.domain.replace(/^www\./,'')===new URL(preview.url).hostname.replace(/^www\./,''));
-      const row=metadata.find(m=>m.store_id===store?.id&&addressAliases(preview.url).includes(m.url));
-      try{return row?enrichCatalogPreview(preview,JSON.parse(row.raw_data).catalogMetadata,stores):preview;}catch{return preview;}
-    });
-    return force?refreshArchivePreviews(enriched,stores,requestCollectorRefresh):watch?archiveRefreshStatus(enriched,stores,collectorPreviewJob):enriched;
-  }
+  if(phase==='B')return readyPreviews(urls);
   const unique = [...new Set(urls)].slice(0, 12);
   const results = await Promise.allSettled(
     unique.map(async (url): Promise<CatalogPreview> => {

@@ -24,6 +24,7 @@ export async function importCatalogProduct(url: string, requestedCategory: strin
   let p;
   try { p = await readProduct(store,url); }
   catch (error) {
+    if(await pricePhase()==='B')throw error;
     if(usesCollector(store.id))throw new HttpError(409,error instanceof Error?error.message:'Toplayıcıdan doğrulanmış ürün bekleniyor.');
     if(previousOffer && isRetryableStoreError(error) && isFresh(previousOffer)) {
       const product=await one<Product>("canonical_products",{id:previousOffer.canonical_product_id});

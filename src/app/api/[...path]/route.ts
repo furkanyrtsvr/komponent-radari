@@ -1,3 +1,4 @@
+import {readyCatalogPage} from '@/lib/server/ready-archive';
 import { cookies } from "next/headers";
 import {getChatGPTUser} from '../../chatgpt-auth';
 import {ensureFeedback,feedbackFor} from '@/lib/server/feedback';
@@ -151,7 +152,7 @@ async function handle(request: Request, context: Context) {
     }
     if(route==='catalog/archive'&&method==='GET'){
       const params=new URL(request.url).searchParams;
-      return Response.json(await discoverArchive({query:z.string().max(300).parse(params.get('q')||''),group:z.string().max(80).parse(params.get('group')||'all'),store:z.string().max(80).parse(params.get('store')||'all'),page:z.coerce.number().int().min(0).max(10000).parse(params.get('page')||'0')}));
+      return Response.json(await ((await pricePhase())==='B'?readyCatalogPage:discoverArchive)({query:z.string().max(300).parse(params.get('q')||''),group:z.string().max(80).parse(params.get('group')||'all'),store:z.string().max(80).parse(params.get('store')||'all'),page:z.coerce.number().int().min(0).max(10000).parse(params.get('page')||'0')}));
     }
     if (route === "catalog/preview" && method === "POST") {
       await rateLimit("catalog-preview:" + u.id, 60);

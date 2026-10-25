@@ -352,7 +352,7 @@ export default function Workspace({
     const cartId=latestCart.current?.id;
     setRefreshing(true);
     setRefreshSeconds(0);
-    setSyncMessage("Canlı fiyatlar arka planda kontrol ediliyor; uygulamayı kullanabilirsin.");
+    setSyncMessage(latestData.current?.pricePhase==='B'?'Hazır katalog okunuyor; fiyat kontrol tarihleri korunuyor.':'Canlı fiyatlar arka planda kontrol ediliyor; uygulamayı kullanabilirsin.');
     const timer=setInterval(()=>setRefreshSeconds(seconds=>seconds+1),1000);
     const finish=()=>{
       clearInterval(timer);

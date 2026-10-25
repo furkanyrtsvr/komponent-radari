@@ -239,6 +239,7 @@ export async function syncLive(productIds?: string[], force = false) {
   if (productIds && !productIds.length) return {demo:false,checked:0,cached:0,failed:0,retained:0,total:0,results:[],message:"Sepette kontrol edilecek ürün yok."};
   const deadline=AbortSignal.timeout(20000);
   const snapshotMode=await pricePhase()==='B';
+  if(snapshotMode)return {demo:false,checked:0,cached:0,failed:0,retained:0,total:0,results:[],message:'Hazır B kataloğu kullanılıyor. Mağaza taraması yapılmadı; fiyatların gerçek kontrol tarihleri korunuyor. Yeni sürüm 12 saatlik hazırlama çalışması başarıyla tamamlandığında yayımlanır.'};
   const stores = (await list<Store>("stores")).filter((s) => s.enabled);
   const products:Product[]=[];
   const offers:Offer[]=[];
@@ -321,7 +322,7 @@ export async function syncLive(productIds?: string[], force = false) {
           results.push({store:store.name,status:'deferred',productId:source.productId});
         }
       }
-      if(deadline.aborted||snapshotMode||usesCollector(store.id))return;
+      if(deadline.aborted||usesCollector(store.id))return;
       if (!sources.some((s) => s.storeId === store.id)) return;
       await lock("shipping:" + store.id, async () => {
         const rule = await one<{ id: string; last_updated: string; rules:string; source_url?:string|null }>(
@@ -376,6 +377,7 @@ export async function syncLive(productIds?: string[], force = false) {
   };
 }
 export async function searchLive(query: string) {
+  if(await pricePhase()==='B')throw new HttpError(409,'B modunda hazır katalogda arama yapabilirsin. Canlı mağaza araması için A modunu seç.');
   if (query.trim().length < 2)
     throw new HttpError(400, "En az iki karakter yazın.");
   const stores = (await list<Store>("stores")).filter(

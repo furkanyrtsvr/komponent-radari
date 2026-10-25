@@ -34,3 +34,18 @@ test('staging freezes observations; source updates and a failed newer publicatio
  db.prepare(ACTIVATE_ARCHIVE_SQL).run(cutoff,JSON.stringify({...manifest,cutoff:'2026-10-24T01:00:00Z'}));
  assert.equal(JSON.parse(String(db.prepare('SELECT payload FROM catalog_collection_runs').get()!.payload)).cutoff,manifest.cutoff);db.close();
 });
+
+
+test('ready browser catalog verifies compressed files and never invents missing prices or images',async()=>{
+ const {gzipSync}=await import('node:zlib');
+ const {createHash}=await import('node:crypto');
+ const {decodeReadyChunk,searchReadyProducts}=await import('../public/catalog/ready-search.js');
+ const at=Date.parse('2026-10-25T15:00:00Z'),date='2026-10-24T10:00:00Z',url='https://store.example/kbu410';
+ const product={key:'kbu410',name:'KBU410 4A 1000V',group:'Diyotlar',sources:[{url,storeId:'ulutas',name:'KBU410 4A 1000V'}],previews:[{url,key:'kbu410',price:1788,image:'/api/archive-image/'+'a'.repeat(64)+'.webp',checkedAt:date,stockStatus:'in_stock'}]};
+ const bytes=gzipSync(JSON.stringify([product])),hash=createHash('sha256').update(bytes).digest('hex');
+ assert.deepEqual(await decodeReadyChunk(bytes,hash),[product]);await assert.rejects(()=>decodeReadyChunk(bytes,'b'.repeat(64)));
+ const options={query:'KBU410',group:'all',store:'all',page:0};
+ const result=searchReadyProducts([product],options,at);assert.equal(result.count,1);assert.equal(result.previews[0].checkedAt,date);assert.equal(result.previews[0].archiveState,'expired');assert.equal(result.previews[0].price,1788);
+ for(const change of [{price:null},{image:null},{image:'https://merchant.example/image.jpg'},{checkedAt:'2026-10-26T00:00:00Z'}])assert.equal(searchReadyProducts([{...product,previews:[{...product.previews[0],...change}]}],options,at).count,0);
+ assert.equal(searchReadyProducts([product],{...options,store:'other'},at).count,0);
+});

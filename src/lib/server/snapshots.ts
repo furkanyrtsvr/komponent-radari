@@ -11,6 +11,7 @@ import {matchesCatalogRequirement} from '../catalog-identity';
 import {usesCollector,COLLECTOR_TTL_MS,collectorLabel,CollectorReadError} from '../collector-routing';
 import {requestCollectorRefresh,collectorRequestStatus} from './collector-requests';
 import {canonicalMerchantPath,merchantPathAliases} from '../merchant-url-aliases';
+import {readyProduct,readySnapshotSources,selectedArchive} from './ready-archive';
 export async function pricePhase(){try{return (await cookies()).get('eub_price_phase')?.value==='B'?'B':'A';}catch{return 'A';}}
 export type SnapshotRow={id:string;store_id:string;url:string;checked_at:string;payload:string};
 export function addressAliases(raw:string){const u=new URL(raw),bare=u.hostname.replace(/^www\./,'');u.hash='';const values:string[]=[];for(const path of u.search?[u.pathname]:merchantPathAliases(bare,u.pathname)){u.pathname=path;u.hostname=bare;values.push(u.href);u.hostname='www.'+bare;values.push(u.href);}return [...new Set(values)];}
@@ -59,6 +60,7 @@ export async function readSnapshot(store:StoreConfig,url:string,maxAge:number) {
 }
 export async function readProduct(store:StoreConfig,url:string,force=false):Promise<ExtractedProduct>{
  const phase=await pricePhase();
+ if(phase==='B')return readyProduct(store,url);
  if(usesCollector(store.id)){
   const cached=await readSnapshot(store,url,COLLECTOR_TTL_MS);
   const job=force||!cached?await requestCollectorRefresh(store,url):undefined;
@@ -67,7 +69,7 @@ export async function readProduct(store:StoreConfig,url:string,force=false):Prom
   throw new CollectorReadError(pending?'Otomatik toplayıcıya yenileme isteği gönderildi; doğrulanmış fiyat bekleniyor.':job?.error?'Toplayıcı fiyatı doğrulayamadı: '+job.error:'Toplayıcıdan doğrulanmış fiyat bekleniyor.',pending);
  }
  if(!force){
-  const cached=await readSnapshot(store,url,phase==='B'?SNAPSHOT_TTL_MS:LIVE_TTL_MS);
+  const cached=await readSnapshot(store,url,LIVE_TTL_MS);
   if(cached)return cached;
  }
  try{return await rememberProduct(store,await adapterFor(store).getProduct(url));}catch(error){
@@ -79,17 +81,18 @@ export async function readProduct(store:StoreConfig,url:string,force=false):Prom
 }
 export async function phaseOffers(offers:Offer[]){
  const phase=await pricePhase();
- const snapshots=new Map((await snapshotSources(offers.filter(o=>o.source==='live').map(o=>o.product_url))).sort((a,b)=>a.checked_at.localeCompare(b.checked_at)).map(row=>[row.store_id+':'+canonicalAddress(row.url,row.store_id),row]));
- return offers.map(offer=>{
+ const read=phase==='B'?readySnapshotSources:snapshotSources;
+ const snapshots=new Map((await read(offers.filter(o=>o.source==='live').map(o=>o.product_url))).sort((a,b)=>a.checked_at.localeCompare(b.checked_at)).map(row=>[row.store_id+':'+canonicalAddress(row.url,row.store_id),row]));
+ return offers.filter(offer=>phase!=='B'||offer.source!=='live'||(()=>{const row=snapshots.get(offer.store_id+':'+canonicalAddress(offer.product_url,offer.store_id));const r=row?upgradeSnapshotReader(JSON.parse(row.payload)):undefined;return r&&matchesCatalogRequirement({name:offer.title,manufacturer:offer.manufacturer,specifications:offer.specifications,unit_type:offer.unit_type},r.product);})()).map(offer=>{
   const row=snapshots.get(offer.store_id+':'+canonicalAddress(offer.product_url,offer.store_id));
   const record=row?upgradeSnapshotReader(JSON.parse(row.payload)):undefined;
   const corrected=!row||Boolean(record);
   let next=corrected?offer:{...offer,last_error:'Satış adımı yeniden kontrol edilmeli.'};
-  if(corrected && row && (row.checked_at>offer.last_checked_at||row.checked_at===offer.last_checked_at&&!offer.last_error) && snapshotUsable(row.checked_at,Infinity)){
+  if(corrected && row && (phase==='B'||row.checked_at>offer.last_checked_at||row.checked_at===offer.last_checked_at&&!offer.last_error) && snapshotUsable(row.checked_at,Infinity)){
    const p=record!.product;
    if(matchesCatalogRequirement({name:offer.title,manufacturer:offer.manufacturer,specifications:offer.specifications,unit_type:offer.unit_type},p))next={...offer,unit_type:p.unitType,title:p.name,specifications:p.specifications,price_gross:p.price,price_net:p.priceNet??p.price,unit_price:Math.round(p.price/p.packageQuantity),package_quantity:p.packageQuantity,minimum_order_quantity:p.minimumOrderQuantity,order_step:p.orderStep,price_tiers:JSON.stringify(p.priceTiers||[]),stock_status:p.stockStatus,stock_quantity:p.stockQuantity,image_url:p.image,last_checked_at:row.checked_at,last_error:null};
   }
-  if(usesCollector(offer.store_id))return {...next,price_source:'collector' as const,snapshot_max_age_ms:COLLECTOR_TTL_MS,...(!row?{last_error:'Toplayıcıdan doğrulanmış fiyat bekleniyor.'}:{})};
+  if(phase!=='B'&&usesCollector(offer.store_id))return {...next,price_source:'collector' as const,snapshot_max_age_ms:COLLECTOR_TTL_MS,...(!row?{last_error:'Toplayıcıdan doğrulanmış fiyat bekleniyor.'}:{})};
   return phase==='B'?{...next,snapshot_max_age_ms:SNAPSHOT_TTL_MS}:next;
  });
 }
@@ -103,6 +106,6 @@ export async function snapshotStatus(){
  }else totals=(await binding().prepare(`SELECT COUNT(*) AS verified,COALESCE(SUM(checked_at>? AND checked_at<=?),0) AS fresh,MAX(checked_at) AS lastCheckedAt FROM catalog_snapshots WHERE ${SNAPSHOT_TRUST_SQL}`).bind(since,at).first()) as typeof totals;
  const collector=await one<{updated_at:string;payload:string}>('catalog_collection_runs',{id:'latest'});
  const perStore=isSupabase() ? [] : await binding().prepare(`SELECT store_id,COUNT(*) AS verified,SUM(checked_at>? AND checked_at<=?) AS fresh,MAX(checked_at) AS lastCheckedAt FROM catalog_snapshots WHERE ${SNAPSHOT_TRUST_SQL} GROUP BY store_id`).bind(since,at).all();
- return {phase:await pricePhase(),...totals,ttlHours:12,requests:await collectorRequestStatus(),collectorConfigured:config('CATALOG_INGEST_SECRET').length>=32,collector:collector?{updatedAt:collector.updated_at,...JSON.parse(collector.payload)}:null,stores:storeCatalog.map(store=>({id:store.id,name:store.name,updateMethod:usesCollector(store.id)?'collector':'direct',...(!Array.isArray(perStore)?perStore.results.find((row:any)=>row.store_id===store.id)||{}:{})}))};
+ return {readyArchive:await selectedArchive(),phase:await pricePhase(),...totals,ttlHours:12,requests:await collectorRequestStatus(),collectorConfigured:config('CATALOG_INGEST_SECRET').length>=32,collector:collector?{updatedAt:collector.updated_at,...JSON.parse(collector.payload)}:null,stores:storeCatalog.map(store=>({id:store.id,name:store.name,updateMethod:usesCollector(store.id)?'collector':'direct',...(!Array.isArray(perStore)?perStore.results.find((row:any)=>row.store_id===store.id)||{}:{})}))};
 }
 export async function snapshotSources(urls:string[]){return listIn<SnapshotRow>('catalog_snapshots','url',[...new Set(urls.flatMap(addressAliases))]);}
