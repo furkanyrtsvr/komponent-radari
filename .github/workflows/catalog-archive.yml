@@ -15,6 +15,7 @@ on:
         options:
           - none
           - failed19-2026-10-24
+          - max7219-2026-10-25
 permissions:
   contents: read
 concurrency:
@@ -46,6 +47,9 @@ jobs:
           RECOVERY_ARGS=()
           if [ "$RECOVERY_SET" = "failed19-2026-10-24" ]; then
             RECOVERY_ARGS=(--targets=scripts/catalog/recovery/failed19-2026-10-24.json)
+          fi
+          if [ "$RECOVERY_SET" = "max7219-2026-10-25" ]; then
+            RECOVERY_ARGS=(--targets=scripts/catalog/recovery/max7219-2026-10-25.json)
           fi
           node --import tsx scripts/catalog/catalogue-b.ts --collect --limit="$COLLECTION_LIMIT" --site=https://komponent-radari.equalwood4.chatgpt.site "${RECOVERY_ARGS[@]}"
       - uses: actions/cache/save@v4

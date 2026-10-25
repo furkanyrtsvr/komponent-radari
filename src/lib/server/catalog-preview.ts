@@ -3,6 +3,8 @@ import { HttpError, list,listIn } from "./db";
 import { adapterFor } from "../../stores/registry";
 import {readProduct,pricePhase,snapshotSources,addressAliases} from './snapshots';
 import {enrichCatalogPreview} from '../catalog-metadata';
+import {refreshArchivePreviews} from '../archive-refresh';
+import {requestCollectorRefresh} from './collector-requests';
 import {archivePreviews} from '../archive-preview';
 import {snapshotUsable} from '../catalog-snapshot';
 import {LIVE_TTL_MS} from '../pricing';
@@ -41,11 +43,12 @@ export async function previewCatalogProducts(urls: string[], force = false) {
   if(phase==='B'){
     const values=await archivePreviews(urls,stores,snapshotSources),missing=values.filter(p=>!p.image);
     const metadata=await listIn<{store_id:string;url:string;raw_data:string}>('store_products','url',missing.flatMap(p=>addressAliases(p.url)));
-    return values.map(preview=>{
+    const enriched=values.map(preview=>{
       const store=stores.find(s=>s.domain.replace(/^www\./,'')===new URL(preview.url).hostname.replace(/^www\./,''));
       const row=metadata.find(m=>m.store_id===store?.id&&addressAliases(preview.url).includes(m.url));
       try{return row?enrichCatalogPreview(preview,JSON.parse(row.raw_data).catalogMetadata,stores):preview;}catch{return preview;}
     });
+    return force?refreshArchivePreviews(enriched,stores,requestCollectorRefresh):enriched;
   }
   const unique = [...new Set(urls)].slice(0, 12);
   const results = await Promise.allSettled(

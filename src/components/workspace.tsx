@@ -1,4 +1,5 @@
 "use client";
+import {chatgptLoginHref} from "@/lib/auth-return";
 import { useState, useEffect, useRef, useMemo, type ReactNode } from "react";
 import {
   Cpu,
@@ -976,7 +977,7 @@ export default function Workspace({
                 className="searchbar"
                 onSubmit={(e) => {
                   e.preventDefault();
-                  setView("catalog");
+                  if(view!=="cart")setView("catalog");
                 }}
               >
                 <Search size={21} />
@@ -986,7 +987,6 @@ export default function Workspace({
                   value={query}
                   onChange={(e) => {
                     setQuery(e.target.value);
-                    if (e.target.value) setView("catalog");
                   }}
                 />
                 <kbd>MPN</kbd>
@@ -1041,6 +1041,7 @@ export default function Workspace({
               )}
               {view === "cart" && (
                 <>
+                  {!data.demo&&query.trim()&&<section className="catalog-section cart-search-results" aria-label="Sepette ürün arama sonuçları"><div className="panel-heading"><h2>Sepetin için ürün bul</h2><Button variant="outline" onClick={()=>setQuery('')}>Aramayı kapat</Button></div><MerchantCatalog phase={data.pricePhase} query={query} stores={data.stores} offers={data.offers} busy={!!busy} onAdd={addIndexedProduct} onReport={setFeedbackContext}/></section>}
                   <div className="cart-layout">
                     <section className="cart-panel surface">
                       <div className="panel-heading">
@@ -2210,7 +2211,7 @@ export default function Workspace({
             {urlResult && <LinkComparison result={urlResult} busy={!!busy} editable={!!editable} onExclude={(offerId,excluded)=>void excludeOffer(urlResult.product.id,offerId,excluded)}/>}
           </>}
           {modal === "login" && <div className="account-panel">
-            {data?.user.authenticated ? <><h3>{data.user.name}</h3><p>{data.user.email}</p><p>Sepetlerin, favorilerin ve takiplerin hesabında saklanır. Aynı hesapla başka cihazda giriş yapabilirsin.</p><a className="account-login" href="/signout-with-chatgpt?return_to=%2F" target="_top">Çıkış yap</a></> : <><p>Üye ol veya giriş yap; mevcut misafir sepetin hesabına aktarılır.</p><a className="account-login" href={`/signin-with-chatgpt?return_to=${encodeURIComponent(typeof location!=="undefined"?location.pathname:"/")}`} target="_top">ChatGPT ile üye ol / giriş yap</a><p className="muted small">Güvenli girişten sonra aynı hesapla bütün cihazlarında sepetlerine ulaşabilirsin.</p></>}
+            {data?.user.authenticated ? <><h3>{data.user.name}</h3><p>{data.user.email}</p><p>Sepetlerin, favorilerin ve takiplerin hesabında saklanır. Aynı hesapla başka cihazda giriş yapabilirsin.</p><a className="account-login" href="/signout-with-chatgpt?return_to=%2F" target="_top">Çıkış yap</a></> : <><p>Üye ol veya giriş yap; mevcut misafir sepetin hesabına aktarılır.</p><a className="account-login" href={chatgptLoginHref(typeof location!=="undefined"?location.pathname:"/")} target="_top">ChatGPT ile üye ol / giriş yap</a><p className="muted small">Güvenli girişten sonra aynı hesapla bütün cihazlarında sepetlerine ulaşabilirsin.</p></>}
             {config?.googleConfigured && !data?.user.authenticated && <Button variant="outline" onClick={()=>void work("login",async()=>{const {error}=await authClient()!.auth.signInWithOAuth({provider:"google",options:{redirectTo:location.origin+"/auth/complete"}});if(error)throw error;})}>Google ile devam et</Button>}
           </div>}
           {modal === "alert" && detail && (

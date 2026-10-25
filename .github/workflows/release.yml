@@ -25,14 +25,17 @@ jobs:
         if: github.event_name == 'push' && contains(github.event.head_commit.message, '[failed19-only]')
         run: node --import tsx --test --test-name-pattern="${{ contains(github.event.head_commit.message, '[image-only]') && 'generic Ozdisan' || '.' }}" tests/failed19-recovery.test.ts
       - name: Usual regression suite
-        if: github.event_name != 'push' || !contains(github.event.head_commit.message, '[failed19-only]')
+        if: github.event_name != 'push' || (!contains(github.event.head_commit.message, '[failed19-only]') && !contains(github.event.head_commit.message, '[workspace-flow]'))
         run: npm test
+      - name: Requested workspace flow checks
+        if: github.event_name == 'push' && contains(github.event.head_commit.message, '[workspace-flow]')
+        run: node --import tsx --test tests/workspace-flow-2026-10-25.test.ts
       - run: npm run typecheck
       - name: Build unchanged catalog with recovery fixes
-        if: github.event_name == 'push' && contains(github.event.head_commit.message, '[failed19-only]')
+        if: github.event_name == 'push' && (contains(github.event.head_commit.message, '[failed19-only]') || contains(github.event.head_commit.message, '[workspace-flow]'))
         run: node scripts/run-framework.mjs build
       - name: Usual catalog and application build
-        if: github.event_name != 'push' || !contains(github.event.head_commit.message, '[failed19-only]')
+        if: github.event_name != 'push' || (!contains(github.event.head_commit.message, '[failed19-only]') && !contains(github.event.head_commit.message, '[workspace-flow]'))
         run: npm run build
   release:
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'

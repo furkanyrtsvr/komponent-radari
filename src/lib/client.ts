@@ -40,6 +40,8 @@ export async function api<T>(
   const timeout=path.endsWith("/optimize") || path==="url" || path==="catalog/import" ? 60000 : 30000;
   const r = await fetch(`/api/${path}`, {
     method,
+    cache:'no-store',
+    credentials:'same-origin',
     signal:signal ? AbortSignal.any([signal,AbortSignal.timeout(timeout)]) : AbortSignal.timeout(timeout),
     headers: {
       "Content-Type": "application/json",

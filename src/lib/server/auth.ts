@@ -23,7 +23,7 @@ export type User = {
   verified_email?: string;
 };
 export async function user(request: Request): Promise<User> {
-  const platform=await getChatGPTUser();
+  const platform=await getChatGPTUser(request);
   if(platform){
     const uid=await accountId(platform.userId);
     let account=await one<User>("users",{id:uid});

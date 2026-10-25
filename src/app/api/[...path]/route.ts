@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import {getChatGPTUser} from '../../chatgpt-auth';
 import {ensureFeedback,feedbackFor} from '@/lib/server/feedback';
 import {FeedbackError} from '@/lib/feedback-service';
 import {feedbackExport} from '@/lib/server/feedback-export';
@@ -76,6 +77,7 @@ async function handle(request: Request, context: Context) {
     const route = path.join("/"),
       method = request.method;
     // Public runtime settings must remain available while the database starts.
+    if(route==='auth/session'&&method==='GET')return Response.json({authenticated:Boolean(await getChatGPTUser(request))},{headers:{'Cache-Control':'private, no-store','Vary':'Cookie'}});
     if (route === "config" && method === "GET")
       return Response.json({
         demo: (await dataSource()) === "demo",
@@ -89,6 +91,7 @@ async function handle(request: Request, context: Context) {
     );
     await ensureSeed();
     const u = await user(request);
+    if(route==='auth/session'&&method==='POST')return Response.json({authenticated:Boolean(u.verified_email)},{headers:{'Cache-Control':'private, no-store','Vary':'Cookie'}});
     await rateLimit(`api:${u.id}`, 180);
     let body: Record<string, unknown> = {};
     if (method === "POST" || method === "PATCH" || method === "PUT") {
@@ -152,7 +155,8 @@ async function handle(request: Request, context: Context) {
     }
     if (route === "catalog/preview" && method === "POST") {
       await rateLimit("catalog-preview:" + u.id, 60);
-      const urls = z.array(z.string().url().max(2000)).min(1).max(await pricePhase()==='B'?ARCHIVE_PREVIEW_BATCH:12).parse(body.urls);
+      if(body.force===true)await rateLimit('catalog-request:'+u.id,6);
+      const urls = z.array(z.string().url().max(2000)).min(1).max(await pricePhase()==='B'?body.force===true?20:ARCHIVE_PREVIEW_BATCH:12).parse(body.urls);
       return Response.json(await previewCatalogProducts(urls, body.force === true));
     }
     if (route === "bootstrap") {
