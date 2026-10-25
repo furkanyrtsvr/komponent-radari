@@ -83,6 +83,7 @@ import {
 import { Toaster, toast } from "sonner";
 import { OptimizationDetails } from "@/components/optimization-details";
 import { MerchantCatalog } from "@/components/merchant-catalog";
+import {ArchiveBootstrapPanel} from '@/components/archive-bootstrap-panel';
 import { AdminTools } from "@/components/admin-tools";
 import {LinkComparison,ShippingLogsPanel,WatchPanel,type LinkResult,type Watch} from "@/components/shopping-panels";
 import { api, configureAuth, authClient } from "@/lib/client";
@@ -1962,6 +1963,7 @@ export default function Workspace({
               )}
               {view === "stores" && cart && <ShippingLogsPanel stores={data.stores} cart={cart} onChange={next=>{setCart(next);changed();void load(false,next.id);}}/>}
               {view === "feedback" && <FeedbackPanel key={feedbackSelected||'feedback'} admin={data.user.admin} initialId={feedbackSelected} onNew={()=>setFeedbackContext(emptyFeedbackContext())}/>}
+              {view === "admin" && data.user.admin && <ArchiveBootstrapPanel/>}
               {view === "admin" && data.user.admin && <section className="surface feedback-admin-overview"><h2>Geri bildirim yönetimi</h2><p>Bütün bildirimleri ve konuşmaları güncel bir Markdown dosyasında indir.</p><div className="panel-actions"><FeedbackExportButton/><Button variant="outline" onClick={()=>{setFeedbackSelected(null);setView("feedback");}}>Tüm bildirimleri görüntüle</Button></div></section>}
               {view === "admin" && <StorePanel stores={data.stores} admin={data.user.admin} onChange={()=>void load()}/>}
               {view === "admin" && data.user.admin && (

@@ -12,8 +12,21 @@ Katalog sıkıştırılmış, SHA-256 ile doğrulanan dosyalara ayrılır. Büt�
 
 ## Yetki ve veri
 
-Hazırlama API mevcut toplayıcı yetkisini kullanır. Anahtar istemciye veya depoya yazılmaz. Hazır dosyalar ortak yayımdır; sepet ve kullanıcı bilgileri içermez. D1 sürüm metadata ve dondurulmuş satırları, R2 görsel ve katalog dosyalarını tutar.
+Hazırlama API mevcut toplayıcı yetkisini kullanır. Anahtar istemciye veya depoya yazılmaz. Hazır dosyalar ortak yayımdır; sepet ve kullanıcı bilgileri içermez. D1 güncel fiyat gözlemlerini, iş durumunu, görsel eşlemelerini ve geçici hazırlık satırlarını tutar. R2 görselleri, katalog dosyalarını ve yayımlanmış tam ürün kayıtlarını tutar. Tam ürün kayıtları özetle doğrulanan parçalara yazıldıktan sonra geçici hazırlık satırları aynı yayın işlemi içinde kaldırılır; eski sürümler R2 üzerinden okunmaya devam eder.
 
 ## Bu değişikliğin kontrolleri
 
 `node --import tsx --test tests/ready-archive.test.ts`: yayın tutarlılığı, eski sürümün korunması, gerçek tarihlerin değişmemesi, WebP boyutu/oranı, özel ağ adreslerinin reddi, sıkıştırılmış dosya bütünlüğü ve fiyat/görseli olmayan kayıtların dışlanması. Eski genel test paketi yeniden çalıştırılmaz.
+
+
+## Yönetici: ilk arşiv kurulumu
+
+Yönetim panelindeki **İlk arşivi başlat** düğmesi sunucuda kalıcı bir iş oluşturur. Yalnız yönetici bu işi başlatabilir veya duraklatabilir. Özdisan, kullanıcının tercihiyle toplu taramadan çıkarılmıştır; linkten ekleme desteği korunur.
+
+Mevcut yarım saatlik toplayıcı, etkin ilk arşiv işine öncelik verir. Her tur 12 dakikaya kadar ilk kez okunacak sayfaları toplar, ardından eksik görselleri hazırlar ve tam sürümü yayımlar. Çalışma uzun tek bir HTTP isteğine bağlı değildir. 12 saat bir çalışma dilimidir; dilim dolunca başa dönmez veya tamamlandı demez. İlk geçiş bitene kadar turlar devam eder. Mağazaların robots gecikmeleri, HTTP engelleri ve fiyat talebi olan ürünler nedeniyle toplam süre günlere uzayabilir.
+
+Her tur sonunda ürün sırası ve okuma sonuçlarını içeren SQLite kontrol noktası sıkıştırılıp yetkili API üzerinden R2'ye kaydedilir. Bir sonraki tur bu noktadan başlar; GitHub çalışma önbelleği silinse bile ilk tarama kaybolmaz. Görseller ayrıca kalıcı kayıtlardan yeniden kullanılır. Kontrol noktası kişisel hesap veya sepet verisi içermez. Düğmeye tekrar basılması eşzamanlı ikinci iş oluşturmaz; süreli çalışma hakkı ve sürüm karşılaştırması eski işçinin yeni durumu ezmesini engeller.
+
+Panel denenmiş bağlantı, fiyatı doğrulanmış kayıt, hazır teklif, henüz denenmemiş bağlantı ve son denemede hata veren kayıtları ayrı gösterir. Hiç ilerleme olmayan üç turdan sonra iş inceleme durumuna geçer. Sonuç eksikse tamamlandı sayılmaz. Duraklatma isteği çalışan turu güvenli kayda geçirir.
+
+Yeni odaklı kontroller: `node --import tsx --test tests/archive-bootstrap.test.ts`.

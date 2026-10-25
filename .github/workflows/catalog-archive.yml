@@ -4,6 +4,10 @@ on:
     - cron: '13,43 * * * *'
   workflow_dispatch:
     inputs:
+      bootstrap:
+        description: Start or resume the administrator-approved initial archive
+        type: boolean
+        default: false
       limit:
         description: Maximum pages per merchant in this batch
         default: '40'
@@ -25,7 +29,7 @@ concurrency:
 jobs:
   collect:
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 350
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -38,7 +42,14 @@ jobs:
           path: work/catalogue-b/catalogue.sqlite
           key: merchant-archive-v2-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: merchant-archive-v2-
+      - name: Continue the administrator's initial archive
+        id: bootstrap
+        env:
+          CATALOG_INGEST_SECRET: ${{ secrets.CATALOG_INGEST_SECRET }}
+          START_INITIAL_ARCHIVE: ${{ inputs.bootstrap && 'true' || 'false' }}
+        run: node --import tsx scripts/catalog/run-bootstrap.ts
       - name: Collect a bounded batch and persist verified prices
+        if: steps.bootstrap.outputs.active != 'true'
         env:
           CATALOG_INGEST_SECRET: ${{ secrets.CATALOG_INGEST_SECRET }}
           COLLECTION_LIMIT: ${{ inputs.limit || '40' }}

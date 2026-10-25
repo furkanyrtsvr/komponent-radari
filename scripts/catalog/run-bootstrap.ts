@@ -1,0 +1,32 @@
+import {spawn} from 'node:child_process';
+import {readFileSync,writeFileSync,unlinkSync,mkdirSync,existsSync,appendFileSync} from 'node:fs';
+import {gzipSync,gunzipSync} from 'node:zlib';
+import {createHash} from 'node:crypto';
+import {DatabaseSync} from 'node:sqlite';
+import {firstPassProgress,compactCollectorCheckpoint} from './bootstrap-queue';
+import {storeCatalog} from '../../src/lib/catalog';
+import type {BootstrapJob,BootstrapProgress} from '../../src/lib/archive-bootstrap';
+const site=process.argv.find(a=>a.startsWith('--site='))?.slice(7)||'https://komponent-radari.equalwood4.chatgpt.site',secret=process.env.CATALOG_INGEST_SECRET;
+if(!secret||secret.length<32)throw new Error('Toplayıcı bağlantısı gerekli.');
+const headers={authorization:'Bearer '+secret},base=site+'/api/archive-bootstrap';
+async function api(body?:unknown){for(let n=0;;n++)try{const r=await fetch(base,{method:body?'POST':'GET',headers:{...headers,...(body?{'content-type':'application/json'}:{})},body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(30000)});if(!r.ok)throw new Error('Arşiv işi HTTP '+r.status);return await r.json() as {job:BootstrapJob|null};}catch(e){if(n>=2)throw e;await new Promise(r=>setTimeout(r,1000*(n+1)));}}
+if(process.env.START_INITIAL_ARCHIVE==='true')await api({action:'request'});
+const available=(await api()).job,active=available&&(available.state==='queued'||available.state==='running');
+if(process.env.GITHUB_OUTPUT)appendFileSync(process.env.GITHUB_OUTPUT,'active='+Boolean(active)+'\n');
+if(!active){console.log('Başlatılmış ilk arşiv işi yok.');process.exit(0);}
+const workerUrl=process.env.GITHUB_RUN_ID?'https://github.com/furkanyrtsvr/komponent-radari/actions/runs/'+process.env.GITHUB_RUN_ID:undefined;
+let job=(await api({action:'claim',workerUrl})).job;if(!job){console.log('İlk arşiv işi başka bir turda çalışıyor.');process.exit(0);}
+const id=job.id,lease=job.leaseId!,started=Date.now(),directory='work/catalogue-b',file=directory+'/catalogue.sqlite',progressFile=directory+'/bootstrap-progress.json';mkdirSync(directory,{recursive:true});
+let stage:'prices'|'images'|'checkpoint'='prices',child:ReturnType<typeof spawn>|undefined,beating=false,heartbeatError:unknown,progress:BootstrapProgress|undefined=job.progress;
+async function beat(){if(beating)return;beating=true;try{if(existsSync(progressFile))progress=JSON.parse(readFileSync(progressFile,'utf8'));job=(await api({action:'beat',id,lease,stage,progress})).job;if(job?.stopRequested)child?.kill('SIGTERM');}catch(e){heartbeatError=e;child?.kill('SIGTERM');}finally{beating=false;}}
+async function run(script:string,args:string[]){if(job?.stopRequested)return;await new Promise<void>((resolve,reject)=>{child=spawn(process.execPath,['--import','tsx',script,...args],{stdio:'inherit',env:process.env});child.on('error',reject);child.on('exit',(code)=>{child=undefined;if(code===0||job?.stopRequested)resolve();else reject(new Error('Toplama adımı tamamlanamadı: '+script));});});if(heartbeatError)throw heartbeatError;}
+async function checkpoint(){if(!existsSync(file))return;stage='checkpoint';await beat();const db=new DatabaseSync(file);try{db.exec('PRAGMA wal_checkpoint(TRUNCATE)');progress={...firstPassProgress(db,storeCatalog.filter(s=>s.id!=='ozdisan').map(s=>s.id)),imageErrors:progress?.imageErrors} as BootstrapProgress;writeFileSync(progressFile,JSON.stringify(progress));}finally{db.close();}await beat();const checkpointFile=directory+'/checkpoint-'+crypto.randomUUID()+'.sqlite';const source=new DatabaseSync(file);try{source.prepare('VACUUM INTO ?').run(checkpointFile);}finally{source.close();}let bytes:Buffer;try{const compact=new DatabaseSync(checkpointFile);try{compactCollectorCheckpoint(compact);}finally{compact.close();}bytes=gzipSync(readFileSync(checkpointFile));}finally{if(existsSync(checkpointFile))unlinkSync(checkpointFile);}if(bytes.length>96*1024*1024)throw new Error('Kalıcı kontrol noktası boyut sınırına ulaştı.');const r=await fetch(base+'?id='+id+'&lease='+lease,{method:'PUT',headers:{...headers,'content-type':'application/gzip','x-checkpoint-sha256':createHash('sha256').update(bytes).digest('hex')},body:bytes as unknown as BodyInit,signal:AbortSignal.timeout(120000)});if(!r.ok)throw new Error('İlerleme sunucuya kaydedilemedi: HTTP '+r.status);}
+const timer=setInterval(()=>void beat(),60000);let failure='';
+try{
+ const r=await fetch(base+'?checkpoint=1',{headers,signal:AbortSignal.timeout(120000)});if(r.ok){const bytes=Buffer.from(await r.arrayBuffer());if(createHash('sha256').update(bytes).digest('hex')!==r.headers.get('x-checkpoint-sha256'))throw new Error('Kontrol noktası doğrulanamadı.');const unpacked=gunzipSync(bytes,{maxOutputLength:1024*1024*1024});if(unpacked.subarray(0,16).toString()!=='SQLite format 3\0')throw new Error('Kontrol noktası biçimi geçersiz.');for(const suffix of ['-wal','-shm'])if(existsSync(file+suffix))unlinkSync(file+suffix);writeFileSync(file,unpacked);}else if(r.status!==404)throw new Error('Kontrol noktası alınamadı: HTTP '+r.status);
+ await run('scripts/catalog/catalogue-b.ts',['--collect','--initial','--limit=250','--minutes=12','--site='+site]);
+ stage='images';await beat();await run('scripts/catalog/publish-archive.ts',['--minutes=4','--site='+site]);
+ const report='work/archive-publisher/publication.json';if(existsSync(report)&&progress){const data=JSON.parse(readFileSync(report,'utf8')),errors=new Map<string,{storeId:string;reason:string;count:number;examples:string[]}>();for(const f of data.failures||[]){let storeId='unknown';try{storeId=storeCatalog.find(s=>s.domain.replace(/^www\./,'')===new URL(f.url).hostname.replace(/^www\./,''))?.id||'unknown';}catch{}if(storeId==='ozdisan')continue;const key=storeId+':'+f.reason,v=errors.get(key)||{storeId,reason:String(f.reason).slice(0,500),count:0,examples:[]};v.count++;if(v.examples.length<3)v.examples.push(f.url);errors.set(key,v);}progress.imageErrors=[...errors.values()].slice(0,60);writeFileSync(progressFile,JSON.stringify(progress));}
+}catch(e){failure=e instanceof Error?e.message:String(e);console.error(failure);}
+finally{clearInterval(timer);while(beating)await new Promise(r=>setTimeout(r,100));try{await checkpoint();}catch(e){failure='Kontrol noktası kaydedilemedi; son güvenli ilerleme korunuyor. '+String(e);console.error(failure);}await api({action:'finish',id,lease,seconds:Math.ceil((Date.now()-started)/1000),error:failure?failure.slice(0,500):undefined});}
+if(failure)process.exitCode=1;

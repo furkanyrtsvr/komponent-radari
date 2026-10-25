@@ -7,6 +7,7 @@ import {
   uniqueIndex,
 } from "drizzle-orm/sqlite-core";
 const pk = () => text("id").primaryKey();
+export const archiveImageCache=sqliteTable('archive_image_cache',{url:text().primaryKey(),image_key:text().notNull(),bytes:integer().notNull().default(0),original_bytes:integer().notNull().default(0)});
 export const archiveBatches=sqliteTable('archive_batches',{
  id:pk(),state:text().notNull().default('building'),created_at:text().notNull(),cutoff:text().notNull(),published_at:text(),manifest:text(),
 });

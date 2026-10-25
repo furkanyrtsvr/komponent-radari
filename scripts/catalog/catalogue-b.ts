@@ -1,3 +1,4 @@
+import {initialArchiveQueue,firstPassProgress} from './bootstrap-queue';
 /** Independent merchant collector. No Cloudflare runtime or browser session required. */
 import {DatabaseSync} from 'node:sqlite';
 import {collectionQueue,REFRESH_AFTER_MS} from './queue';
@@ -14,7 +15,7 @@ import {validateSnapshot,type SnapshotRecord} from '../../src/lib/catalog-snapsh
 import {validateCatalogMetadata,type CatalogMetadata} from '../../src/lib/catalog-metadata';
 import {safeStoreUrl} from '../../src/stores/base';
 const arg=(key:string,fallback='')=>process.argv.find(a=>a.startsWith(`--${key}=`))?.slice(key.length+3)||fallback;
-const requestsOnly=process.argv.includes('--requests-only');
+const requestsOnly=process.argv.includes('--requests-only'),initial=process.argv.includes('--initial');
 const dir=resolve(requestsOnly?'work/catalogue-requests':'work/catalogue-b');mkdirSync(dir,{recursive:true});
 const lock=resolve(dir,'collector.lock');
 try{if(existsSync(lock)){const pid=Number(readFileSync(lock,'utf8'));try{process.kill(pid,0);throw new Error('Başka bir toplayıcı çalışıyor.');}catch(e){if((e as NodeJS.ErrnoException).code!=='ESRCH')throw e;unlinkSync(lock);}}const fd=openSync(lock,'wx');writeFileSync(fd,String(process.pid));closeSync(fd);}catch(e){console.error(e instanceof Error?e.message:e);process.exit(1);}
@@ -30,10 +31,10 @@ db.exec(`PRAGMA journal_mode=WAL;PRAGMA synchronous=NORMAL;
 const write=db.prepare(`UPDATE products SET name=?,checked_at=?,payload=?,last_attempt=?,next_due=?,error=NULL,uploaded_at=NULL WHERE store_id=? AND url=? AND (checked_at IS NULL OR checked_at<? OR (checked_at=? AND COALESCE(json_extract(payload,'$.readerRevision'),0)<?))`);
 function save(record:SnapshotRecord){const p=record.product,key=record.requestedUrl||p.url;db.prepare('INSERT OR IGNORE INTO products(store_id,url,name,category,source_category,generation) VALUES(?,?,?,?,?,?)').run(record.storeId,key,p.name,'Diğer','',String(db.prepare("SELECT value FROM metadata WHERE key='generation'").get()?.value||''));return write.run(p.name,record.checkedAt,JSON.stringify(record),record.checkedAt,new Date(Date.parse(record.checkedAt)+REFRESH_AFTER_MS).toISOString(),record.storeId,key,record.checkedAt,record.checkedAt,record.readerRevision||0).changes;}
 async function run(){
- const manifestText=readFileSync('public/catalog/manifest.json','utf8'),manifest=JSON.parse(manifestText),generation=createHash('sha256').update(manifestText).digest('hex');
+ const manifestText=readFileSync('public/catalog/manifest.json','utf8'),manifest=JSON.parse(manifestText),generation=createHash('sha256').update(manifestText).update(':bulk-without-ozdisan-v1').digest('hex');
  if(!requestsOnly&&db.prepare("SELECT value FROM metadata WHERE key='generation'").get()?.value!==generation){
   const put=db.prepare(`INSERT INTO products(store_id,url,name,category,source_category,generation) VALUES(?,?,?,?,?,?) ON CONFLICT(store_id,url) DO UPDATE SET category=excluded.category,source_category=excluded.source_category,generation=excluded.generation,active=1`);
-  for(const store of manifest.stores)for(const chunk of store.chunks){
+  for(const store of manifest.stores.filter((s:{id:string})=>s.id!=='ozdisan'))for(const chunk of store.chunks){
    const rows=JSON.parse(readFileSync(resolve('public/catalog',chunk.key),'utf8'));
    db.exec('BEGIN');try{for(const [path,name,category] of rows)put.run(store.id,new URL(path,store.base).href,name,chunk.group,category||chunk.group,generation);db.exec('COMMIT');}catch(e){db.exec('ROLLBACK');throw e;}
   }
@@ -55,17 +56,19 @@ async function run(){
  }
  if(process.argv.includes('--collect')){
   if(secret&&!recoveryFile){try{const r=await fetch(`${site}/api/catalog-snapshot`,{headers:auth,signal:AbortSignal.timeout(15000)});if(!r.ok)throw new Error(`HTTP ${r.status}`);const payload=await r.json() as {requests?:CollectorRequest[];watchlist:{storeId:string;url:string}[]};db.prepare('UPDATE products SET priority=0 WHERE priority>=10').run();const mark=db.prepare('UPDATE products SET priority=10,active=1 WHERE store_id=? AND url=?');for(const row of payload.watchlist)mark.run(row.storeId,row.url);requests=registerCollectorRequests(db,payload.requests||[],storeCatalog,generation);for(const request of requests){const old=db.prepare('SELECT error,last_attempt FROM products WHERE store_id=? AND url=?').get(request.storeId,request.url) as {error:string|null;last_attempt:string|null};if(old?.error&&old.last_attempt&&old.last_attempt>=request.requestedAt)requestFailures.push({id:request.id,requestedAt:request.requestedAt,error:old.error.slice(0,500)});}}catch(e){if(requestsOnly)throw e;console.error('Yenileme kuyruğu alınamadı; katalog sırası kullanılıyor:',e instanceof Error?e.message:e);}}
-  const selected=requestsOnly?[...new Set(requests.map(r=>r.storeId))]:recoveryFile?[...new Set(targets.map(t=>t.storeId))]:arg('stores',storeCatalog.map(s=>s.id).join(',')).split(','),limit=Math.min(250,Math.max(1,Number(arg('limit','40'))));
+  const selected=requestsOnly?[...new Set(requests.map(r=>r.storeId))]:recoveryFile?[...new Set(targets.map(t=>t.storeId))]:arg('stores',storeCatalog.filter(s=>s.id!=='ozdisan').map(s=>s.id).join(',')).split(','),limit=Math.min(250,Math.max(1,Number(arg('limit','40'))));
   if(requestsOnly&&!secret)throw new Error('İstek modu yetkili toplayıcı anahtarı gerektirir.');
-  const collectionDeadline=Date.now()+(requestsOnly?5:18)*60*1000;
+  const collectionDeadline=Date.now()+(requestsOnly?5:Math.min(18,Math.max(1,Number(arg('minutes','18')))))*60*1000;
+  let lastProgress=0;const progress=()=>{if(initial&&Date.now()-lastProgress>30000){lastProgress=Date.now();writeFileSync(resolve(dir,'bootstrap-progress.json'),JSON.stringify(firstPassProgress(db,selected)));}};progress();
   const knownOnly=process.argv.includes('--known-only');
   if(!Number.isInteger(limit)||selected.some(id=>!storeCatalog.some(s=>s.id===id)))throw new Error('Geçersiz mağaza veya kayıt sınırı.');
   await Promise.all(storeCatalog.filter(s=>selected.includes(s.id)).map(async store=>{
    let delay=3000;
    try{const r=await fetch(`https://${store.domain}/robots.txt`,{headers:{'user-agent':'EUB-PriceComparison/1.0 (+public product metadata; no authentication)'},signal:AbortSignal.timeout(10000)});if(!r.ok)throw new Error(`robots HTTP ${r.status}`);const text=await r.text();delay=Math.max(delay,...[...text.matchAll(/^\s*Crawl-delay:\s*([\d.]+)/gim)].map(m=>Number(m[1])*1000));}catch(e){summary.failed++;storeErrors.set(store.id,String(e).slice(0,500));for(const request of requests.filter(r=>r.storeId===store.id))requestFailures.push({id:request.id,requestedAt:request.requestedAt,error:String(e).slice(0,500)});console.error(`${store.id}: ${e instanceof Error?e.message:e}`);return;}
-   const rows=requestsOnly?requests.filter(r=>r.storeId===store.id).slice(0,limit):recoveryFile?targets.filter(t=>t.storeId===store.id):collectionQueue(db,store.id,limit,knownOnly);
+   const rows=requestsOnly?requests.filter(r=>r.storeId===store.id).slice(0,limit):recoveryFile?targets.filter(t=>t.storeId===store.id):initial?initialArchiveQueue(db,store.id,limit):collectionQueue(db,store.id,limit,knownOnly);
    if(recoveryFile)for(const row of rows)db.prepare('INSERT OR IGNORE INTO products(store_id,url,name,category,source_category,generation) VALUES(?,?,?, ?,?,?)').run(store.id,row.url,'','Diğer','',generation);
    for(const row of rows){
+    progress();
     if(Date.now()+delay+30000>=collectionDeadline){console.log(`${store.id}: Turun süre sınırı; kalan kayıtlar sonraki turda devam edecek.`);break;}
     await new Promise(r=>setTimeout(r,delay));
     try{
@@ -89,6 +92,7 @@ async function run(){
   const metadataPending=(db.prepare('SELECT store_id,url,payload FROM metadata_observations WHERE uploaded_at IS NULL').all() as {store_id:string;url:string;payload:string}[]).filter(row=>!recoveryFile||targets.some(t=>t.storeId===row.store_id&&new URL(t.url).pathname===new URL(row.url).pathname));
   for(let offset=0;offset<metadataPending.length;offset+=25){const batch=metadataPending.slice(offset,offset+25);const r=await fetch(`${site}/api/catalog-snapshot`,{method:'POST',headers:{...auth,'content-type':'application/json'},body:JSON.stringify({metadata:batch.map(row=>JSON.parse(row.payload) as CatalogMetadata)}),signal:AbortSignal.timeout(30000)});if(!r.ok)throw new Error(`Görsel aktarımı başarısız: HTTP ${r.status}`);const result=await r.json() as {metadata:{saved:number;ignored:number}};if(result.metadata.saved+result.metadata.ignored!==batch.length)throw new Error('Görsel aktarım sayısı uyuşmuyor.');for(const row of batch)db.prepare('UPDATE metadata_observations SET uploaded_at=? WHERE store_id=? AND url=? AND payload=?').run(new Date().toISOString(),row.store_id,row.url,row.payload);summary.metadataUploaded+=result.metadata.saved;}
  }
+ if(initial)writeFileSync(resolve(dir,'bootstrap-progress.json'),JSON.stringify(firstPassProgress(db,storeCatalog.filter(s=>s.id!=='ozdisan').map(s=>s.id))));
  const stats=db.prepare('SELECT store_id,COUNT(*) AS indexed,SUM(payload IS NOT NULL) AS verified FROM products WHERE active=1 GROUP BY store_id').all() as {store_id:string;indexed:number;verified:number}[];
  const failures=db.prepare('SELECT store_id,COUNT(*) AS failed,MAX(error) AS error FROM products WHERE last_attempt>=? AND error IS NOT NULL GROUP BY store_id').all(startedAt) as {store_id:string;failed:number;error:string}[];
  const status={state:'completed',startedAt,...summary,stores:storeCatalog.map(store=>({...stats.find(row=>row.store_id===store.id)||{store_id:store.id,indexed:0,verified:0},error:storeErrors.get(store.id)||(failures.some(row=>row.store_id===store.id)?failures.filter(row=>row.store_id===store.id).map(row=>`${row.failed} sayfa doğrulanamadı: ${row.error}`).join('; ').slice(0,500):null)||(!stats.some(row=>row.store_id===store.id)?'Ürün adres dizini entegrasyonu yok.':null)}))};
