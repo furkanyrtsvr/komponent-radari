@@ -14,7 +14,10 @@ export function parseHobidevreProduct(html:string,url:string,publicProduct?:unkn
   const nodes:any[]=[];const visit=(v:any)=>{if(Array.isArray(v))v.forEach(visit);else if(v&&typeof v==='object'){if(v['@type']==='Product'&&ascii(v.name)===ascii(p.name)&&linked(v.url||v['@id']||''))nodes.push(v);if(v['@graph'])visit(v['@graph']);}};
   $('script[type="application/ld+json"]').each((_,e)=>{try{visit(JSON.parse($(e).text()));}catch{}});
   const sku=nodes.length===1?String(nodes[0].sku||''):'';
-  const exact=d&&/^\d+$/.test(id)&&$('body').hasClass('postid-'+id)&&linked(d.permalink||'')&&ascii(d.name)===ascii(p.name)&&sku&&d.sku===sku&&d.type==='simple'&&d.parent===0&&d.has_options===false&&Array.isArray(d.variations)&&d.variations.length===0;
+  // Woo's API encodes the multiplication sign inside dimensional SKU values.
+  // Normalize that separator only between digits; retain every model/rating digit.
+  const skuValue=(value:unknown)=>typeof value==='string'?value.replace(/(?<=\d)(?:&#(?:215|x0*d7);|&times;|×)(?=\d)/gi,'x'):'';
+  const exact=d&&/^\d+$/.test(id)&&$('body').hasClass('postid-'+id)&&linked(d.permalink||'')&&ascii(d.name)===ascii(p.name)&&sku&&skuValue(d.sku)===skuValue(sku)&&d.type==='simple'&&d.parent===0&&d.has_options===false&&Array.isArray(d.variations)&&d.variations.length===0;
   const price=d?.prices?.price;
   if(!exact||d?.prices?.currency_code!=='TRY'||d?.prices?.currency_minor_unit!==2||typeof price!=='string'||!/^\d+$/.test(price)||Number(price)!==gross||parsePrice(box.attr('data-price'))!==gross)throw new Error('Hobi Devre stok dışı ürünün kimliği veya halka açık fiyatı doğrulanamadı.');
   if(d.is_in_stock!==false||d.is_on_backorder!==false||d.stock_availability?.class!=='out-of-stock'||p.stockStatus!=='out_of_stock')throw new Error('Hobi Devre stok bilgisi çelişiyor.');
