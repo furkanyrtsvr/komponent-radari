@@ -136,6 +136,7 @@ export function MerchantCatalog({
   >({});
   const [failedImages, setFailedImages] = useState<string[]>([]);
   const [refreshPending,setRefreshPending]=useState(false);
+  const [archiveReload,setArchiveReload]=useState(0);
   const attemptedPreviews = useRef(new Set<string>());
   const previewLive = useRef(true);
   const previewPending = useRef(false);
@@ -196,7 +197,7 @@ export function MerchantCatalog({
     setStatus({ requestId: id, progress: 0, chunks: 1 });
     const timer = setTimeout(() => worker.current?.postMessage({ requestId: id, query, group, store, page }), query ? 300 : 0);
     return () => clearTimeout(timer);
-  }, [query, group, store, page, manifest,archiveMode]);
+  }, [query, group, store, page, manifest,archiveMode,archiveReload]);
 
   useEffect(()=>{
     if(!archiveMode)return;
@@ -212,7 +213,7 @@ export function MerchantCatalog({
       }).catch(error=>{if(!controller.signal.aborted)setStatus({requestId:id,error:error instanceof Error?error.message:'Arşiv okunamadı.'});});
     },query?300:0);
     return()=>{clearTimeout(timer);controller.abort();};
-  },[archiveMode,query,group,store,page]);
+  },[archiveMode,query,group,store,page,archiveReload]);
 
   useEffect(() => {
     if (archiveMode||previewPending.current) return;
@@ -401,7 +402,7 @@ export function MerchantCatalog({
           Bu bağlantıdaki ürünü sepete ekle
         </button>
       )}
-      {status?.error && <p className="error-box">{status.error}</p>}
+      {status?.error && <div className="error-box"><p>{status.error}</p><button type="button" onClick={()=>setArchiveReload(value=>value+1)}>Yeniden dene</button></div>}
       {Boolean(status?.errors) && <p className="error-box">Bazı katalog bölümleri yüklenemedi. Gösterilen sonuçlar eksik olabilir.</p>}
       {!status?.done && !status?.error && (
         <div className="catalog-progress" role="status">
