@@ -1,4 +1,4 @@
-import {fairImageQueue} from './archive-image-queue';
+import {fairImageQueue,reusableImage} from './archive-image-queue';
 import {DatabaseSync} from 'node:sqlite';
 import {mkdirSync,writeFileSync} from 'node:fs';
 import {gzipSync} from 'node:zlib';
@@ -21,6 +21,9 @@ async function run(){
  const batch=await call('archive-build',{action:'begin',id:crypto.randomUUID()}),id=batch.id;const rows:any[]=[];let cursor='';
  for(;;){const page=await call('archive-build?id='+id+'&cursor='+encodeURIComponent(cursor));rows.push(...page);if(page.length<200)break;cursor=page.at(-1).source_id;}
  if(rows.length!==batch.candidates)throw new Error('Dondurulmuş katalog satır sayısı tutarsız.');
+ // Rebuild the local accelerator from permanent server records when Actions
+ // evicts its cache. This reads our stored metadata, never merchant images.
+ let imageCursor='';for(;;){const page=await call('archive-build?images=1&cursor='+encodeURIComponent(imageCursor));for(const image of page.rows)cache.prepare('INSERT OR IGNORE INTO images VALUES(?,?,?,?,?)').run(image.url,image.key,image.bytes,image.original_bytes,new Date().toISOString());if(!page.next)break;imageCursor=page.next;}
  const deadline=Date.now()+Number(arg('minutes','170'))*60000,observations:any[]=[],failures:any[]=[],imageStats=new Map<string,{bytes:number;original:number}>();
  const jobs=new Map<string,any[]>(),seenUrls=new Set<string>();
  for(const row of rows.sort((a,b)=>b.checked_at.localeCompare(a.checked_at))){
@@ -30,9 +33,9 @@ async function run(){
  await Promise.all(Array.from({length:12},async()=>{for(;;){const index=at++;if(index>=entries.length)return;const [source,linked]=entries[index];
   try{
    let image=cache.prepare('SELECT * FROM images WHERE url=?').get(source) as {key:string;bytes:number;original_bytes:number;checked_at:string}|undefined;
-   if(!image||Date.now()-Date.parse(image.checked_at)>7*86400000){const bytes=await downloadProductImage(source,deadline),prepared=await compactProductImage(bytes);await call('archive-assets/'+prepared.key,undefined,prepared.bytes);image={key:prepared.key,bytes:prepared.bytes.length,original_bytes:prepared.originalBytes,checked_at:new Date().toISOString()};cache.prepare('INSERT OR REPLACE INTO images VALUES(?,?,?,?,?)').run(source,image.key,image.bytes,image.original_bytes,image.checked_at);}
+   if(!reusableImage(image)){const bytes=await downloadProductImage(source,deadline),prepared=await compactProductImage(bytes);await call('archive-assets/'+prepared.key,undefined,prepared.bytes);image={key:prepared.key,bytes:prepared.bytes.length,original_bytes:prepared.originalBytes,checked_at:new Date().toISOString()};cache.prepare('INSERT OR REPLACE INTO images VALUES(?,?,?,?,?)').run(source,image.key,image.bytes,image.original_bytes,image.checked_at);}
    imageStats.set(image.key,{bytes:image.bytes,original:image.original_bytes});
-   for(const row of linked){ready.push({sourceId:row.source_id,imageKey:image.key});observations.push({...row,imageKey:image.key});}
+   for(const row of linked){ready.push({sourceId:row.source_id,imageKey:image.key,originalBytes:image.original_bytes});observations.push({...row,imageKey:image.key});}
    if(ready.length%100===0)console.log('Hazır teklif:',ready.length,'/',rows.length);
   }catch(e){for(const row of linked)failures.push({url:row.url,reason:e instanceof Error?e.message:String(e)});}
  }}));

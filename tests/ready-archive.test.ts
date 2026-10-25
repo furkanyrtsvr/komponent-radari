@@ -56,3 +56,10 @@ test('image preparation alternates hosts before revisiting a slow merchant',asyn
  const input:[string,number][]=[['https://slow.example/1',1],['https://slow.example/2',2],['https://slow.example/3',3],['https://fast.example/1',4],['https://other.example/1',5]];
  assert.deepEqual(fairImageQueue(input).map(x=>x[1]),[1,4,5,2,3]);assert.equal(input[1][1],2);
 });
+
+
+test('price refreshes reuse prepared images indefinitely; missing assets require preparation',async()=>{
+ const {reusableImage}=await import('../scripts/catalog/archive-image-queue');
+ const old={key:'images/'+'a'.repeat(64)+'.webp',bytes:2916,original_bytes:4293,checked_at:'2020-01-01T00:00:00Z'};
+ assert.equal(reusableImage(old),true);assert.equal(reusableImage(undefined),false);assert.equal(reusableImage({...old,key:'invalid'}),false);assert.equal(reusableImage({...old,bytes:0}),false);
+});

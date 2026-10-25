@@ -10,7 +10,13 @@ export const dynamic='force-dynamic';
 const uuid=z.string().uuid();
 function failure(e:unknown){return Response.json({error:e instanceof Error?e.message:'Katalog hazırlanamadı.'},{status:e instanceof HttpError?e.status:400});}
 export async function GET(request:Request){try{
- authorizeCollector(request);const params=new URL(request.url).searchParams,id=uuid.parse(params.get('id')),cursor=params.get('cursor')||'';
+ authorizeCollector(request);const params=new URL(request.url).searchParams,cursor=params.get('cursor')||'';
+ if(params.get('images')==='1'){
+  const stored=await binding().prepare('SELECT id,payload,image_key FROM archive_batch_rows WHERE ready=1 AND image_key IS NOT NULL AND id>? ORDER BY id LIMIT 100').bind(cursor).all<{id:string;payload:string;image_key:string}>();
+  const rows=[];for(const row of stored.results){const p=JSON.parse(row.payload),meta=p.preparedImage;let bytes=meta?.bytes,original=meta?.originalBytes;if(!bytes){const object=await archiveBucket().head(row.image_key);if(!object)continue;bytes=object.size;original=bytes;}if(p.product?.image&&archiveImageKey(row.image_key))rows.push({url:p.product.image,key:row.image_key,bytes,original_bytes:original||bytes});}
+  return Response.json({rows,next:stored.results.length===100?stored.results.at(-1)!.id:null});
+ }
+ const id=uuid.parse(params.get('id'));
  const rows=await binding().prepare('SELECT source_id,store_id,url,checked_at,payload FROM archive_batch_rows WHERE batch_id=? AND source_id>? ORDER BY source_id LIMIT 200').bind(id,cursor).all();return Response.json(rows.results);
 }catch(e){return failure(e);}}
 export async function POST(request:Request){try{
@@ -28,14 +34,14 @@ export async function POST(request:Request){try{
  if(batch?.state==='published'&&body.action==='publish'&&batch.manifest&&JSON.stringify(validateArchiveManifest(body.manifest))===batch.manifest)return Response.json({published:true,...JSON.parse(batch.manifest)});
  if(batch?.state!=='building')throw new HttpError(409,'Bu katalog hazırlık durumunda değil.');
  if(body.action==='ready'){
-  const rows=z.array(z.object({sourceId:z.string().min(1).max(100),imageKey:z.string().refine(archiveImageKey)})).min(1).max(50).parse(body.rows);
+  const rows=z.array(z.object({sourceId:z.string().min(1).max(100),imageKey:z.string().refine(archiveImageKey),originalBytes:z.number().int().positive().max(8000000).optional()})).min(1).max(50).parse(body.rows);
   const statements=[];
   for(const row of rows){
    const stored=await binding().prepare('SELECT payload,checked_at FROM archive_batch_rows WHERE batch_id=? AND source_id=?').bind(id,row.sourceId).first<{payload:string;checked_at:string}>();
    if(!stored)throw new HttpError(404,'Katalog gözlemi yok.');const record=upgradeSnapshotReader(validateSnapshot(JSON.parse(stored.payload),storeCatalog,Date.parse(stored.checked_at)));
    if(!record?.product.image)throw new HttpError(400,'Ürünün kendi görsel kaynağı doğrulanmadı.');
    const image=await archiveBucket().head(row.imageKey);if(!image||image.httpMetadata?.contentType!=='image/webp')throw new HttpError(400,'Hazır ürün görseli bulunamadı.');
-   statements.push(binding().prepare('UPDATE archive_batch_rows SET ready=1,image_key=?,url=? WHERE batch_id=? AND source_id=?').bind(row.imageKey,record.product.url,id,row.sourceId));
+   statements.push(binding().prepare('UPDATE archive_batch_rows SET ready=1,image_key=?,url=?,payload=? WHERE batch_id=? AND source_id=?').bind(row.imageKey,record.product.url,JSON.stringify({...JSON.parse(stored.payload),preparedImage:{bytes:image.size,originalBytes:row.originalBytes||image.size}}),id,row.sourceId));
   }
   await binding().batch(statements);return Response.json({ready:rows.length});
  }

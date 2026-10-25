@@ -4,7 +4,7 @@ B, doğrulanmış fiyatı ve önceden hazırlanmış ürün görseli olan teklif
 
 ## Hazırlama ve yayın
 
-`archive-publish.yml` 00:06 ve 12:06 UTC zamanlarında çalışır. Mevcut doğrulanmış gözlemler bir kesim tarihinde dondurulur. Görseller güvenli HTTPS kaynaklarından, robots kuralları ve mağaza gecikmeleri korunarak alınır. Her görsel en fazla 800×800 WebP, kalite 84 olarak hazırlanır; oran korunur, küçük görsel büyütülmez. Aynı kaynak görsel adresi 7 gün önbellekte tutulabilir. Görsel değişikliği fiyatın kontrol tarihini değiştirmez.
+`archive-publish.yml` 00:06 ve 12:06 UTC zamanlarında çalışır. Mevcut doğrulanmış gözlemler bir kesim tarihinde dondurulur. Görseller güvenli HTTPS kaynaklarından, robots kuralları ve mağaza gecikmeleri korunarak alınır. Her görsel en fazla 800×800 WebP, kalite 84 olarak hazırlanır; oran korunur, küçük görsel büyütülmez. Aynı kaynak görsel adresi kalıcı olarak yeniden kullanılır; fiyat yenilemesi görseli yeniden indirmez. Yeni ürünün veya kaynak görsel adresi değişen ürünün görseli bir kez hazırlanır. Görseller mağazanın bağlantısına bağımlı kalmadan R2 üzerinde içerik özetiyle saklanır. GitHub çalışma önbelleği silinse bile hazırlanmış görsel adresleri sunucudaki kalıcı kayıtlardan yeniden yüklenir; mağaza görselleri tekrar indirilmez. Görsel değişikliği fiyatın kontrol tarihini değiştirmez.
 
 Katalog sıkıştırılmış, SHA-256 ile doğrulanan dosyalara ayrılır. Bütün dosyalar ve görseller yüklendikten sonra etkin sürüm tek işlemle değiştirilir. Başarısız hazırlamada önceki sürüm kalır. Tarayıcı dosyaları bir kez indirir; aramalar yerelde yapılır. Fotoğraflar aynı yayındaki hazırlanmış dosyalardan yüklenir. Açık oturumun detay ve sepet okumaları aynı sürüme sabitlenir.
 
