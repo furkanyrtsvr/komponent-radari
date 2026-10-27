@@ -1,5 +1,11 @@
 import {appendFileSync} from 'node:fs';
-import {initialArchiveHasPriority} from '../../src/lib/archive-scheduling';
 const secret=process.env.CATALOG_INGEST_SECRET;if(!secret||secret.length<32)throw new Error('Toplayıcı bağlantısı gerekli.');
-const r=await fetch('https://komponent-radari.equalwood4.chatgpt.site/api/archive-bootstrap',{headers:{authorization:'Bearer '+secret},signal:AbortSignal.timeout(30000)});if(!r.ok)throw new Error('İlk tarama önceliği kontrol edilemedi: HTTP '+r.status);
-const {job}=await r.json() as {job:null|{state:string}},publish=!initialArchiveHasPriority(job);if(process.env.GITHUB_OUTPUT)appendFileSync(process.env.GITHUB_OUTPUT,'publish='+publish+'\n');console.log(publish?'Kısa hazır katalog yayını çalışabilir.':'İlk tarama öncelikli; ayrı görsel işi sırayı tutmadan sona eriyor.');
+const headers={authorization:'Bearer '+secret},site='https://komponent-radari.equalwood4.chatgpt.site';
+const r=await fetch(site+'/api/archive-bootstrap',{headers,signal:AbortSignal.timeout(30000)});if(!r.ok)throw new Error('Tarama durumu okunamadı: '+r.status);
+const {job}=await r.json() as {job:null|{state:string}};
+const active=Boolean(job&&['running','queued'].includes(job.state));
+const current=await fetch(site+'/api/archive-current',{signal:AbortSignal.timeout(30000)});if(!current.ok&&current.status!==503)throw new Error('Hazır katalog durumu okunamadı: '+current.status);
+const result=await current.json() as any,archive=result.archive||result.batch||result;
+const publish=process.env.PUBLICATION_EVENT==='workflow_dispatch'||active||!archive.preparedAt||Date.now()-Date.parse(archive.preparedAt)>=12*3600000;
+if(process.env.GITHUB_OUTPUT)appendFileSync(process.env.GITHUB_OUTPUT,'publish='+publish+'\n');
+console.log(publish?'Yayıncı fiyat taramasından bağımsız çalışıyor.':'12 saatlik fiyat yayın aralığı henüz dolmadı.');

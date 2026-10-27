@@ -113,6 +113,8 @@ vendor/                Üçüncü taraf stil dosyası ve lisansı
 
 ## Kontroller
 
+27 Ekim 2026: [Fiyat taramasından bağımsız, kaldığı yerden devam eden artımlı B yayını](docs/ARSIV_AKISI_2026-10-27.md). Mevcut fiyatlar, hazırlanmış görseller ve ilk tarama kontrol noktası korunur.
+
 ```sh
 npm test
 npm run typecheck

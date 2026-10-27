@@ -1,17 +1,26 @@
 name: Publish prepared B catalog
 on:
   schedule:
-    - cron: '6 0,12 * * *'
+    - cron: '23 * * * *'
+  workflow_run:
+    workflows: ['Collect merchant price archive']
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
     inputs:
+      handoff:
+        description: Safely checkpoint the legacy combined worker before resuming independently
+        type: boolean
+        default: false
       minutes:
         description: Maximum image preparation minutes; incomplete images stay outside B
         default: '8'
         required: true
 permissions:
   contents: read
+  actions: write
 concurrency:
-  group: merchant-price-archive
+  group: prepared-catalog-publication
   cancel-in-progress: false
 jobs:
   publish:
@@ -24,17 +33,29 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm run install:ci
-      - name: Yield to the active initial archive
+      - name: Preserve the legacy worker checkpoint and resume independently
+        if: inputs.handoff == true
+        env:
+          CATALOG_INGEST_SECRET: ${{ secrets.CATALOG_INGEST_SECRET }}
+          GH_TOKEN: ${{ github.token }}
+        run: node --import tsx scripts/catalog/handoff-collection.ts
+      - uses: actions/cache/restore@v4
+        with:
+          path: work/archive-publisher/images.sqlite
+          key: prepared-archive-images-v1-transition
+          restore-keys: prepared-archive-images-v1-
+      - name: Check independent publication schedule
         id: priority
         env:
           CATALOG_INGEST_SECRET: ${{ secrets.CATALOG_INGEST_SECRET }}
+          PUBLICATION_EVENT: ${{ github.event_name }}
         run: node --import tsx scripts/catalog/publication-priority.ts
       - uses: actions/cache/restore@v4
         if: steps.priority.outputs.publish == 'true'
         with:
-          path: work/archive-publisher/images.sqlite
-          key: prepared-archive-images-v1-${{ github.run_id }}-${{ github.run_attempt }}
-          restore-keys: prepared-archive-images-v1-
+          path: work/archive-publisher/publication.sqlite
+          key: incremental-publication-v1-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: incremental-publication-v1-
       - name: Prepare every verified observation and publish one complete version
         if: steps.priority.outputs.publish == 'true'
         env:
@@ -42,12 +63,12 @@ jobs:
           PREPARE_MINUTES: ${{ inputs.minutes || '8' }}
         run: |
           test -n "$CATALOG_INGEST_SECRET" || exit 1
-          node --import tsx scripts/catalog/publish-archive.ts --minutes="$PREPARE_MINUTES"
+          node --import tsx scripts/catalog/publish-incremental.ts
       - uses: actions/cache/save@v4
         if: always() && steps.priority.outputs.publish == 'true'
         with:
-          path: work/archive-publisher/images.sqlite
-          key: prepared-archive-images-v1-${{ github.run_id }}-${{ github.run_attempt }}
+          path: work/archive-publisher/publication.sqlite
+          key: incremental-publication-v1-${{ github.run_id }}-${{ github.run_attempt }}
       - uses: actions/upload-artifact@v4
         if: always() && steps.priority.outputs.publish == 'true'
         with:

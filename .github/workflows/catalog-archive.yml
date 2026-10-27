@@ -23,6 +23,7 @@ on:
           - hobidevre-max7219-2026-10-25
 permissions:
   contents: read
+  actions: write
 concurrency:
   group: merchant-price-archive
   cancel-in-progress: false
@@ -42,17 +43,13 @@ jobs:
           path: work/catalogue-b/catalogue.sqlite
           key: merchant-archive-v2-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: merchant-archive-v2-
-      - uses: actions/cache/restore@v4
-        with:
-          path: work/archive-publisher/images.sqlite
-          key: prepared-archive-images-v1-${{ github.run_id }}-${{ github.run_attempt }}
-          restore-keys: prepared-archive-images-v1-
       - name: Continue the administrator's initial archive
         id: bootstrap
         env:
           CATALOG_INGEST_SECRET: ${{ secrets.CATALOG_INGEST_SECRET }}
+          GH_TOKEN: ${{ github.token }}
           START_INITIAL_ARCHIVE: ${{ inputs.bootstrap && 'true' || 'false' }}
-        run: node --import tsx scripts/catalog/run-bootstrap.ts
+        run: node --import tsx scripts/catalog/continue-collection.ts
       - name: Collect a bounded batch and persist verified prices
         if: steps.bootstrap.outputs.active != 'true'
         env:
@@ -77,8 +74,8 @@ jobs:
         with:
           path: work/catalogue-b/catalogue.sqlite
           key: merchant-archive-v2-${{ github.run_id }}-${{ github.run_attempt }}
-      - uses: actions/cache/save@v4
-        if: always()
-        with:
-          path: work/archive-publisher/images.sqlite
-          key: prepared-archive-images-v1-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: Continue immediately from the saved checkpoint
+        if: steps.bootstrap.outputs.continue == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run catalog-archive.yml --ref main

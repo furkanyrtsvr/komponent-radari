@@ -10,6 +10,7 @@ export async function PUT(request:Request,context:{params:Promise<{key:string[]}
  const digest=[...new Uint8Array(await crypto.subtle.digest('SHA-256',bytes))].map(b=>b.toString(16).padStart(2,'0')).join('');
  if(image){if(!isWebpAsset(new Uint8Array(bytes))||key!==`images/${digest}.webp`)throw new HttpError(400,'WebP dosyası doğrulanamadı.');}
  else{const magic=new Uint8Array(bytes);if(magic[0]!==31||magic[1]!==139)throw new HttpError(400,'Sıkıştırılmış katalog gerekli.');}
+ if(key.startsWith('objects/')&&key!==`objects/${digest}.json.gz`)throw new HttpError(400,'Katalog dosyası özeti uyuşmuyor.');
  const previous=await archiveBucket().head(key);if(previous&&previous.customMetadata?.sha256!==digest)throw new HttpError(409,'Yayımlanabilir dosyalar değiştirilemez.');
  if(!previous)await archiveBucket().put(key,bytes,{httpMetadata:{contentType:image?'image/webp':'application/json',cacheControl:'public, max-age=31536000, immutable',...(image?{}:{contentEncoding:'gzip'})},customMetadata:{sha256:digest}});
  return Response.json({key,sha256:digest,bytes:bytes.byteLength});

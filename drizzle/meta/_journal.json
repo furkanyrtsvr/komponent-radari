@@ -57,6 +57,13 @@
       "when": 1792936689691,
       "tag": "0007_chemical_sprite",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1793091029025,
+      "tag": "0008_tense_omega_red",
+      "breakpoints": true
     }
   ]
 }

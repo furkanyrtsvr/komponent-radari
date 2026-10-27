@@ -7,6 +7,6 @@ export const bootstrapActive=(job:BootstrapJob|null)=>Boolean(job&&(job.state===
 export function claimable(job:BootstrapJob|null,at=Date.now()){return Boolean(job&&(job.state==='queued'||job.state==='running'&&Date.parse(job.leaseUntil||'')<at));}
 export function finishBootstrap(job:BootstrapJob,seconds:number,ready:number,at=new Date().toISOString()):BootstrapJob{
  const unseen=job.progress.stores.reduce((n,s)=>n+s.unseen,0),verified=job.progress.stores.reduce((n,s)=>n+s.verified,0),failed=job.progress.stores.reduce((n,s)=>n+s.failed,0),attempted=job.progress.stores.reduce((n,s)=>n+s.attempted,0),stalled=ready<=job.lastReady&&attempted<=(job.lastAttempted||0)?job.stalledRounds+1:0;
- const state=job.stopRequested?'paused':unseen===0&&ready>=verified?(failed?'attention':'completed'):stalled>=3?'attention':'queued';
+ const state=job.stopRequested?'paused':unseen===0?(failed?'attention':'completed'):stalled>=3?'attention':'queued';
  return {...job,revision:job.revision+1,state,stage:state==='queued'?'queued':state==='paused'?'paused':state==='completed'?'completed':'failed',updatedAt:at,workedSeconds:job.workedSeconds+Math.max(0,Math.min(21600,seconds)),leaseId:undefined,leaseUntil:undefined,lastReady:ready,lastAttempted:attempted,stalledRounds:stalled,lastError:state==='attention'?'Tarama tamamlanamadı veya eksik kayıtlar kaldı. Erişilemeyen sayfalar ve görseller için mağaza raporunu incele.':'',stopRequested:false};
 }
