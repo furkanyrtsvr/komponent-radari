@@ -1,3 +1,4 @@
+import {validateArchiveManifest,archiveObjectAllowed} from '../src/lib/ready-archive';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
@@ -42,4 +43,9 @@ test('checkpoint retries only transient failures without replacing the last safe
  let attempts=0,pointer='saved-90483';
  const result=await retryNetwork(async()=>{attempts++;if(attempts<3)throw new DOMException('network timeout','TimeoutError');pointer='saved-90484';return pointer;},async()=>{});assert.equal(attempts,3);assert.equal(result,'saved-90484');
  attempts=0;await assert.rejects(()=>retryNetwork(async()=>{attempts++;throw new Error('invalid lease');},async()=>{}));assert.equal(attempts,1);assert.equal(pointer,'saved-90484');
+});
+
+test('a recovered publication can append a new immutable index without overwriting an earlier index',()=>{
+ const id='00000000-0000-4000-8000-000000000028',sha='a'.repeat(64),file='catalogs/'+id+'/snapshots-index-'+sha+'.json.gz',manifest={version:1,id,preparedAt:'2026-10-28T01:00:00.000Z',cutoff:'2026-10-28T00:00:00.000Z',products:1,offers:1,candidates:1,imageBytes:100,originalImageBytes:100,chunks:[{file:'objects/'+sha+'.json.gz',sha256:sha,bytes:100,products:1}],sourceIndex:{file,sha256:sha,bytes:100,offers:1},stores:[{id:'ulutas',offers:1,fresh:1}]};
+ assert.equal(archiveObjectAllowed(file),true);assert.equal(validateArchiveManifest(manifest).sourceIndex!.file,file);assert.throws(()=>validateArchiveManifest({...manifest,sourceIndex:{...manifest.sourceIndex,sha256:'b'.repeat(64)}}));assert.equal(validateArchiveManifest({...manifest,sourceIndex:{...manifest.sourceIndex,file:'catalogs/'+id+'/snapshots-index.json.gz'}}).offers,1);
 });

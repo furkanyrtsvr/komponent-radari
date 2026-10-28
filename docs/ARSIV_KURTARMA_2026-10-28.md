@@ -29,3 +29,7 @@ Yalnız yeni kontroller: `tests/archive-recovery-2026-10-28.test.ts`.
 kısmi başarı, küçük parça yeniden denemeleri, bellek bütçesi ve güvenli otomatik
 devam sınandı. Yerel gerçek API denetiminde 90 binden fazla hazırlık kaydı
 silinmeden yayın etkinleştirildi; dosya denetimsiz etkinleştirme reddedildi.
+
+Kurtarılan yayının indeks dosyası içerik özetiyle adlandırılır. Hazırlığa yeni
+görsel eklendiğinde önceki değişmez indeksin üzerine yazılması gerekmez. Eski
+indeks adları ve yayımlanmış sürümler okunmaya devam eder.
