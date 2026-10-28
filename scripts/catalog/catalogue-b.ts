@@ -1,3 +1,4 @@
+import {transferRecords,transientTransfer} from './reliable-transfer';
 import {initialArchiveQueue,firstPassProgress} from './bootstrap-queue';
 /** Independent merchant collector. No Cloudflare runtime or browser session required. */
 import {DatabaseSync} from 'node:sqlite';
@@ -51,6 +52,13 @@ async function run(){
  const startedAt=new Date().toISOString(),storeErrors=new Map<string,string>();
  let requests:CollectorRequest[]=[];const requestFailures:{id:string;requestedAt:string;error:string}[]=[];
  const auth:Record<string,string>=secret?{authorization:`Bearer ${secret}`}:{},summary={indexed:db.prepare('SELECT COUNT(*) AS n FROM products WHERE active=1').get()!.n,checked:0,failed:0,imported:0,uploaded:0,metadataUploaded:0,uploadError:''};
+ async function flushPrices(){
+  if(!secret)return;
+  const pending=db.prepare('SELECT store_id,url,payload,checked_at FROM products WHERE payload IS NOT NULL AND uploaded_at IS NULL ORDER BY checked_at').all() as {store_id:string;url:string;payload:string;checked_at:string}[];
+  const selected=pending.filter(row=>!recoveryFile||targetKeys.has(row.store_id+':'+row.url)),records=selected.map(row=>JSON.parse(row.payload)),sources=new Map(records.map((record,index)=>[record,selected[index]]));
+  summary.uploaded+=await transferRecords(records,site+'/api/catalog-snapshot',auth,batch=>{const mark=db.prepare('UPDATE products SET uploaded_at=? WHERE store_id=? AND url=? AND checked_at=?');for(const record of batch){const row=sources.get(record)!;mark.run(new Date().toISOString(),row.store_id,row.url,row.checked_at);}});
+ }
+ await flushPrices();
  if(arg('feed')){
   let lineNo=0;for await(const line of createInterface({input:createReadStream(arg('feed')),crlfDelay:Infinity})){lineNo++;if(!line.trim())continue;try{const record=validateSnapshot(JSON.parse(line),storeCatalog);if(save(record))summary.imported++;}catch(e){summary.failed++;console.error(`Veri satırı ${lineNo}: ${e instanceof Error?e.message:e}`);}}
  }
@@ -87,8 +95,7 @@ async function run(){
  }
  if(secret){
   for(let offset=0;offset<requestFailures.length;offset+=100){const r=await fetch(`${site}/api/catalog-snapshot`,{method:'PATCH',headers:{...auth,'content-type':'application/json'},body:JSON.stringify({failures:requestFailures.slice(offset,offset+100)}),signal:AbortSignal.timeout(20000)});if(!r.ok)throw new Error(`Yenileme hata durumu kaydedilemedi: HTTP ${r.status}`);}
-  const pending=(db.prepare(`SELECT store_id,url,payload,checked_at FROM products WHERE payload IS NOT NULL AND uploaded_at IS NULL AND checked_at>? ORDER BY checked_at`).all(new Date(Date.now()-12*3600000).toISOString()) as {store_id:string;url:string;payload:string;checked_at:string}[]).filter(row=>!recoveryFile||targetKeys.has(row.store_id+':'+row.url));
-  for(let offset=0;offset<pending.length;offset+=50){const batch=pending.slice(offset,offset+50);try{let result:{saved:number;ignored:number}|undefined;for(let attempt=0;attempt<3;attempt++){try{const r=await fetch(`${site}/api/catalog-snapshot`,{method:'POST',headers:{...auth,'content-type':'application/json'},body:JSON.stringify({records:batch.map(row=>JSON.parse(row.payload))}),signal:AbortSignal.timeout(20000)});if(!r.ok)throw new Error(`HTTP ${r.status}: ${(await r.text()).slice(0,200)}`);result=await r.json() as {saved:number;ignored:number};break;}catch(error){if(attempt===2)throw error;await new Promise(resolve=>setTimeout(resolve,1000*(attempt+1)));}}if(!result)throw new Error('Arşiv aktarımı yanıt vermedi.');if(result.saved+result.ignored!==batch.length)throw new Error('Aktarım sayısı uyuşmuyor.');const mark=db.prepare('UPDATE products SET uploaded_at=? WHERE store_id=? AND url=? AND checked_at=?');for(const row of batch)mark.run(new Date().toISOString(),row.store_id,row.url,row.checked_at);summary.uploaded+=batch.length;}catch(e){summary.uploadError=e instanceof Error?e.message:String(e);console.error(summary.uploadError);break;}}
+  await flushPrices();
   const metadataPending=(db.prepare('SELECT store_id,url,payload FROM metadata_observations WHERE uploaded_at IS NULL').all() as {store_id:string;url:string;payload:string}[]).filter(row=>!recoveryFile||targets.some(t=>t.storeId===row.store_id&&new URL(t.url).pathname===new URL(row.url).pathname));
   for(let offset=0;offset<metadataPending.length;offset+=25){const batch=metadataPending.slice(offset,offset+25);const r=await fetch(`${site}/api/catalog-snapshot`,{method:'POST',headers:{...auth,'content-type':'application/json'},body:JSON.stringify({metadata:batch.map(row=>JSON.parse(row.payload) as CatalogMetadata)}),signal:AbortSignal.timeout(30000)});if(!r.ok)throw new Error(`Görsel aktarımı başarısız: HTTP ${r.status}`);const result=await r.json() as {metadata:{saved:number;ignored:number}};if(result.metadata.saved+result.metadata.ignored!==batch.length)throw new Error('Görsel aktarım sayısı uyuşmuyor.');for(const row of batch)db.prepare('UPDATE metadata_observations SET uploaded_at=? WHERE store_id=? AND url=? AND payload=?').run(new Date().toISOString(),row.store_id,row.url,row.payload);summary.metadataUploaded+=result.metadata.saved;}
  }
@@ -101,4 +108,4 @@ async function run(){
 
  console.log(JSON.stringify(summary));if(summary.uploadError)process.exitCode=1;
 }
-try{await run();}catch(e){console.error(e instanceof Error?e.message:e);process.exitCode=1;}finally{db.exec('PRAGMA wal_checkpoint(TRUNCATE)');db.close();unlinkSync(lock);}
+try{await run();}catch(e){console.error(e instanceof Error?e.message:e);process.exitCode=transientTransfer(e)?75:1;}finally{db.exec('PRAGMA wal_checkpoint(TRUNCATE)');db.close();unlinkSync(lock);}

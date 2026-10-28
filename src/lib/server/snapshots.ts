@@ -16,27 +16,8 @@ export async function pricePhase(){try{return (await cookies()).get('eub_price_p
 export type SnapshotRow={id:string;store_id:string;url:string;checked_at:string;payload:string};
 export function addressAliases(raw:string){const u=new URL(raw),bare=u.hostname.replace(/^www\./,'');u.hash='';const values:string[]=[];for(const path of u.search?[u.pathname]:merchantPathAliases(bare,u.pathname)){u.pathname=path;u.hostname=bare;values.push(u.href);u.hostname='www.'+bare;values.push(u.href);}return [...new Set(values)];}
 function canonicalAddress(raw:string,storeId:string){const domain=storeCatalog.find(s=>s.id===storeId)?.domain;const u=new URL(raw);if(domain)u.hostname=domain;if(!u.search)u.pathname=canonicalMerchantPath(u.hostname,u.pathname);u.hash='';return u.href;}
-/** Write through actual page observations; a cache read never advances its date. */
-export async function saveSnapshot(record:SnapshotRecord){
- const url=new URL(record.requestedUrl||record.product.url);url.hash='';
- const row={id:crypto.randomUUID(),store_id:record.storeId,url:url.href,checked_at:record.checkedAt,payload:JSON.stringify(record)};
- if(isSupabase()){
-  const {data,error}=await supabase().rpc('eub_save_catalog_snapshot',{snapshot:row});if(error)throw error;return Boolean(data);
- }else {const result=await binding().prepare(SNAPSHOT_UPSERT_SQL).bind(row.id,row.store_id,row.url,row.checked_at,row.payload).run();return result.meta.changes>0;}
-}
-/** One atomic database batch avoids a network round trip for every collected page. */
-export async function saveSnapshots(records:SnapshotRecord[]){
- if(isSupabase()){let saved=0;for(const record of records)if(await saveSnapshot(record))saved++;return {saved,ignored:records.length-saved};}
- let saved=0;
- for(let offset=0;offset<records.length;offset+=50){
-  const statements=records.slice(offset,offset+50).map(record=>{
-   const url=new URL(record.requestedUrl||record.product.url);url.hash='';
-   return binding().prepare(SNAPSHOT_UPSERT_SQL).bind(crypto.randomUUID(),record.storeId,url.href,record.checkedAt,JSON.stringify(record));
-  });
-  const results=await binding().batch(statements);saved+=results.filter(r=>r.meta.changes>0).length;
- }
- return {saved,ignored:records.length-saved};
-}
+import {saveSnapshot,saveSnapshots} from './snapshot-write';
+export {saveSnapshot,saveSnapshots};
 async function rememberProduct(store:StoreConfig,product:ExtractedProduct){
  const pack=product.packageQuantity||1;
  const url=safeStoreUrl(product.url,store.domain);url.hostname=store.domain;url.hash='';

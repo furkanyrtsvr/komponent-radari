@@ -1,4 +1,4 @@
-import {one,list,insert,update} from './db';
+import {binding,isSupabase,one,list,insert,update} from './db';
 import {accountId} from '../account';
 import {safeStoreUrl} from '../../stores/base';
 import {storeCatalog} from '../catalog';
@@ -36,4 +36,10 @@ export async function completeCollectorRequest(storeId:string,url:string,checked
 export async function collectorRequestStatus(){
  const [pending,failed]=await Promise.all([list<CollectorJob>('scrape_jobs',{status:'collector_pending'},10000),list<CollectorJob>('scrape_jobs',{status:'collector_failed'},10000)]);
  return {pending:pending.length,failed:failed.length,stores:storeCatalog.map(store=>({storeId:store.id,pending:pending.filter(j=>j.store_id===store.id).length,failed:failed.filter(j=>j.store_id===store.id).length}))};
+}
+
+export async function completeCollectorRequests(records:{storeId:string;url:string;checkedAt:string}[]){
+ if(isSupabase()){for(const row of records)await completeCollectorRequest(row.storeId,row.url,row.checkedAt);return;}
+ const statements=await Promise.all(records.map(async row=>binding().prepare("UPDATE scrape_jobs SET status='collector_completed',error=NULL,finished_at=? WHERE id=? AND status IN ('collector_pending','collector_failed') AND created_at<=?").bind(row.checkedAt,await accountId('collector:'+row.storeId+':'+row.url),row.checkedAt)));
+ for(let i=0;i<statements.length;i+=10)await binding().batch(statements.slice(i,i+10));
 }
