@@ -1,0 +1,18 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {DatabaseSync} from 'node:sqlite';
+import {RETIRED_ROWS_SQL,backupBeforeRemoval} from '../src/lib/archive-retention';
+import {savePublicationCheckpoint,loadPublicationCheckpoint,CHECKPOINT_PART_BYTES} from '../scripts/catalog/publication-checkpoint';
+test('retention protects active, pending, legacy and all source prices; only bounded retired copies move',async()=>{
+ const db=new DatabaseSync(':memory:');db.exec('CREATE TABLE archive_batches(id TEXT PRIMARY KEY,state TEXT,manifest TEXT);CREATE TABLE archive_batch_rows(id TEXT PRIMARY KEY,batch_id TEXT,payload TEXT);CREATE TABLE catalog_snapshots(id TEXT PRIMARY KEY,payload TEXT)');
+ for(const [id,state,manifest] of [['old','published','{"sourceIndex":{"file":"saved"}}'],['active','published','{"sourceIndex":{"file":"live"}}'],['pending','building','{}'],['legacy','published','{}']]){db.prepare('INSERT INTO archive_batches VALUES(?,?,?)').run(id,state,manifest);for(let i=0;i<600;i++)db.prepare('INSERT INTO archive_batch_rows VALUES(?,?,?)').run(id+i,id,'original-'+i);}
+ db.prepare('INSERT INTO catalog_snapshots VALUES(?,?)').run('price','verified');let moved=0;const durable:any[]=[];
+ for(;;){const rows=db.prepare(RETIRED_ROWS_SQL).all('active');if(!rows.length)break;assert.ok(rows.length<=250);moved+=await backupBeforeRemoval(rows,async rows=>{durable.push(...structuredClone(rows));},async rows=>{for(const row of rows)db.prepare('DELETE FROM archive_batch_rows WHERE id=?').run(row.id);return rows.length;});}
+ assert.equal(moved,600);assert.equal(durable.length,600);assert.equal(db.prepare('SELECT COUNT(*) n FROM archive_batch_rows').get()!.n,1800);assert.equal(db.prepare('SELECT payload FROM catalog_snapshots').get()!.payload,'verified');db.close();
+});
+test('failed backup never deletes; interrupted deletion can replay exact retained payloads',async()=>{let deleted=0;await assert.rejects(backupBeforeRemoval([1,2],async()=>{throw Error('R2 unavailable');},async()=>++deleted));assert.equal(deleted,0);const copies:any[]=[];await assert.rejects(backupBeforeRemoval([1,2],async rows=>{copies.push(...rows);},async()=>{throw Error('DB unavailable');}));assert.deepEqual(copies,[1,2]);});
+test('large publisher checkpoint uses bounded verified parts; failed part leaves old pointer intact',async()=>{
+ const original=globalThis.fetch,objects=new Map<string,Buffer>();let pointer:any=null,fail=false;
+ globalThis.fetch=(async(url:any,init:any={})=>{const u=new URL(String(url)),key=u.searchParams.get('chunk');if(init.method==='PUT'){if(fail)return new Response('',{status:400});objects.set(key!,Buffer.from(init.body));return Response.json({saved:true});}if(init.method==='POST'){pointer=JSON.parse(init.body);return Response.json({saved:true});}if(u.searchParams.has('descriptor'))return Response.json(pointer);return new Response(objects.get(key!) as unknown as BodyInit);}) as typeof fetch;
+ try{const data=Buffer.alloc(CHECKPOINT_PART_BYTES+17,41);await savePublicationCheckpoint('https://test/state',{},data);assert.equal(pointer.chunks.length,2);assert.ok(pointer.chunks.every((p:any)=>p.bytes<=CHECKPOINT_PART_BYTES));assert.deepEqual(await loadPublicationCheckpoint('https://test/state',{}),data);const old=pointer;fail=true;await assert.rejects(savePublicationCheckpoint('https://test/state',{},Buffer.from('new')));assert.equal(pointer,old);fail=false;objects.set(pointer.chunks[0].key,Buffer.from('corrupt'));await assert.rejects(loadPublicationCheckpoint('https://test/state',{}));}finally{globalThis.fetch=original;}
+});

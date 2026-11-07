@@ -1,4 +1,5 @@
 import {assetPage,ARCHIVE_READY_PAGE,ARCHIVE_PAYLOAD_PAGE} from '@/lib/archive-runtime-bounds';
+import {retireArchivePage} from '@/lib/server/archive-retention';
 import {z} from 'zod';
 import {authorizeCollector} from '@/lib/server/collector-auth';
 import {binding,one,HttpError} from '@/lib/server/db';
@@ -25,6 +26,7 @@ export async function GET(request:Request){try{
 }catch(e){return failure(e);}}
 export async function POST(request:Request){try{
  authorizeCollector(request);const raw=await request.text();if(raw.length>1000000)throw new HttpError(413,'Katalog isteği çok büyük.');const body=JSON.parse(raw);
+ if(body.action==='retire')return Response.json(await retireArchivePage());
  if(body.action==='begin'){
   if(body.recover===true&&typeof body.base==='string'){const old=await binding().prepare("SELECT id,cutoff,manifest FROM archive_batches WHERE state='building' AND json_extract(manifest,'$.base')=? ORDER BY cutoff DESC LIMIT 1").bind(body.base).first<{id:string;cutoff:string;manifest:string}>();if(old){const metadata=JSON.parse(old.manifest),count=await binding().prepare('SELECT COUNT(*) AS n,COALESCE(SUM(ready=1),0) AS ready FROM archive_batch_rows WHERE batch_id=?').bind(old.id).first<{n:number;ready:number}>(),active=await publishedArchive();if(active&&active.id===body.base)return Response.json({id:old.id,cutoff:old.cutoff,candidates:count?.n||0,alreadyReady:count?.ready||0,sequence:metadata.sequence,reset:false,base:active.id,baseOffers:active.offers,recovered:true});}}
 
