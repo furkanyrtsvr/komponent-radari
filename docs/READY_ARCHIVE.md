@@ -1,12 +1,12 @@
 # Hazır B kataloğu
 
-B, doğrulanmış fiyatı ve önceden hazırlanmış ürün görseli olan tekliflerin sabit bir yayınıdır. Ürün açılması veya arama mağaza taraması başlatmaz. Fiyatı ya da görseli hazırlanamayan ürün bu sürümde gösterilmez; daha geniş bağlantı dizini A modundadır.
+B, fiyatı doğrulanmış tekliflerin sabit bir yayınıdır; görselin hazırlanması fiyatın görünmesini engellemez. Ürün açılması veya arama mağaza taraması başlatmaz. Fiyatı doğrulanamayan ürün bu sürümde gösterilmez. Görseli eksik ürün fiyatıyla listelenir; eksik görsel belirtilir.
 
 ## Hazırlama ve yayın
 
 `archive-publish.yml` 00:06 ve 12:06 UTC zamanlarında çalışır. Mevcut doğrulanmış gözlemler bir kesim tarihinde dondurulur. Görseller güvenli HTTPS kaynaklarından, robots kuralları ve mağaza gecikmeleri korunarak alınır. Her görsel en fazla 800×800 WebP, kalite 84 olarak hazırlanır; oran korunur, küçük görsel büyütülmez. Aynı kaynak görsel adresi kalıcı olarak yeniden kullanılır; fiyat yenilemesi görseli yeniden indirmez. Yeni ürünün veya kaynak görsel adresi değişen ürünün görseli bir kez hazırlanır. Görseller mağazanın bağlantısına bağımlı kalmadan R2 üzerinde içerik özetiyle saklanır. GitHub çalışma önbelleği silinse bile hazırlanmış görsel adresleri sunucudaki kalıcı kayıtlardan yeniden yüklenir; mağaza görselleri tekrar indirilmez. Görsel değişikliği fiyatın kontrol tarihini değiştirmez.
 
-Katalog sıkıştırılmış, SHA-256 ile doğrulanan dosyalara ayrılır. Bütün dosyalar ve görseller yüklendikten sonra etkin sürüm tek işlemle değiştirilir. Başarısız hazırlamada önceki sürüm kalır. Tarayıcı dosyaları bir kez indirir; aramalar yerelde yapılır. Fotoğraflar aynı yayındaki hazırlanmış dosyalardan yüklenir. Açık oturumun detay ve sepet okumaları aynı sürüme sabitlenir.
+Katalog sıkıştırılmış, SHA-256 ile doğrulanan dosyalara ayrılır. Bütün katalog dosyaları ve kullanılan görseller yüklendikten sonra etkin sürüm tek işlemle değiştirilir. Başarısız hazırlamada önceki sürüm kalır. Tarayıcı dosyaları bir kez indirir; aramalar yerelde yapılır. Fotoğraflar aynı yayındaki hazırlanmış dosyalardan yüklenir. Açık oturumun detay ve sepet okumaları aynı sürüme sabitlenir.
 
 12 saat, yayın hazırlama aralığıdır; 1,16 milyon bağlantının tamamının veya her fiyatın bu aralıkta yeniden okunduğu anlamına gelmez. Toplayıcı sınırlı turlarla gözlemleri günceller. Her fiyat kendi gerçek kontrol tarihini korur. 12 saatten eski fiyatlar eski olarak gösterilir ve güncel fiyat/stok sayılmaz. Yayımlanan ürün/teklif sayısı ve hazırlama tarihi ekranda görünür. İlk hazırlama ve süre sınırları kapsamı daraltabilir.
 
@@ -37,3 +37,5 @@ Yeni odaklı kontroller: `node --import tsx --test tests/archive-bootstrap.test.
 Etkin ilk tarama varsa bağımsız hazır katalog yayımlama işi öncelik kontrolüyle beklemeden çıkar. İlk tarama kendi kısa görsel hazırlama adımını yürütür. Normal bağımsız hazırlamanın varsayılan görsel süresi 8 dakikadır. Her iki iş aynı hazırlanmış görsel önbelleğini geri yükler ve kaydeder; kesilen görsel hazırlığında tamamlanan indirmeler sonraki tarama turunda yeniden kullanılır.
 
 Panel sırada beklemeyi fiili çalışmadan ayırır. Bekleme sırasında denenen bağlantı sayısının artmadığını ve kaç dakika beklediğini açıkça gösterir. Görsel aşamasında da sayacın sabit kalabileceği belirtilir.
+
+[Görselden bağımsız fiyat kataloğu](FIYATLI_KATALOG_2026-11-07.md).

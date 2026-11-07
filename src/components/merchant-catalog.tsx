@@ -178,7 +178,7 @@ export function MerchantCatalog({
   },[archiveMode,archiveReload]);
   useEffect(() => {
     if (!manifest||(archiveMode&&!edition)) return;
-    const nextWorker = new Worker(archiveMode?'/catalog/ready-worker.js?v=1':"/catalog/search-worker.js?v=20261023-discovery2", {type:"module"});
+    const nextWorker = new Worker(archiveMode?'/catalog/ready-worker.js?v=priced-20261107':"/catalog/search-worker.js?v=20261023-discovery2", {type:"module"});
     worker.current = nextWorker;
     nextWorker.onmessage = (event: MessageEvent<SearchResponse>) => {
       if (event.data.requestId !== request.current) return;
@@ -295,10 +295,10 @@ export function MerchantCatalog({
           <h2>Ürünler</h2>
           <p>
             {manifest
-              ? archiveMode?edition?`${edition.products.toLocaleString('tr-TR')} hazır ürün · ${edition.offers.toLocaleString('tr-TR')} fiyat ve görsel`:'İlk hazır katalog hazırlanıyor':`${manifest.total.toLocaleString("tr-TR")} mağaza kaydı · ${manifest.stores.length} mağaza`
+              ? archiveMode?edition?`${edition.products.toLocaleString('tr-TR')} hazır ürün · ${edition.offers.toLocaleString('tr-TR')} fiyat teklifi`:'İlk hazır katalog hazırlanıyor':`${manifest.total.toLocaleString("tr-TR")} mağaza kaydı · ${manifest.stores.length} mağaza`
               : "Katalog yükleniyor…"}
           </p>
-          {phase==='B'&&<p>Fiyat ve görseller önceden hazırlanır; ürün açılınca mağazaya istek gönderilmez. 12 saatten eski fiyatlar gerçek kontrol tarihleriyle gösterilir; güncel teklif veya stok sayılmaz.</p>}
+          {phase==='B'&&<p>Doğrulanmış fiyatlar hazır katalogdan gelir; görseli eksik ürünler de listelenir. Ürün açılınca mağazaya istek gönderilmez. 12 saatten eski fiyatlar gerçek kontrol tarihleriyle gösterilir; güncel teklif veya stok sayılmaz.</p>}
         </div>
         <label>
           Mağaza
@@ -322,7 +322,7 @@ export function MerchantCatalog({
         </label>
       </div>
 
-      {archiveMode&&edition&&<p className="catalog-source-note">Hazır sürüm: {new Date(edition.preparedAt).toLocaleString('tr-TR')} · {edition.candidates.toLocaleString('tr-TR')} fiyat kaydından {edition.offers.toLocaleString('tr-TR')} görseli hazırlanmış teklif. Tüm mağaza bağlantılarını kapsamaz. <button type="button" onClick={()=>setArchiveReload(v=>v+1)}>Yeni sürümü kontrol et</button></p>}
+      {archiveMode&&edition&&<p className="catalog-source-note">Hazır sürüm: {new Date(edition.preparedAt).toLocaleString('tr-TR')} · {edition.candidates.toLocaleString('tr-TR')} fiyat kaydından {edition.offers.toLocaleString('tr-TR')} doğrulanmış teklif. Görseli eksik olanların fiyatı da gösterilir. Tüm mağaza bağlantılarını kapsamaz. <button type="button" onClick={()=>setArchiveReload(v=>v+1)}>Yeni sürümü kontrol et</button></p>}
       <nav className="merchant-category-list" aria-label="Ürün kategorileri">
         <button
           className={group === "all" ? "active" : ""}
