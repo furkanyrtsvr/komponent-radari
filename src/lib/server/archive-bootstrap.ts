@@ -1,4 +1,5 @@
 import {archiveProgressSummary} from '../archive-progress-summary';
+import {completedWorkerRecovery} from '../archive-worker-recovery';
 import {binding,one,HttpError,config} from './db';
 import {activeArchive,archiveBucket} from './ready-archive';
 import {storeCatalog} from '../catalog';
@@ -17,7 +18,8 @@ export async function startBootstrap(){
  return bootstrapView();
 }
 export async function pauseBootstrap(){const job=await bootstrapJob();if(!bootstrapActive(job))return bootstrapView();await replace(job!,{...job!,revision:job!.revision+1,updatedAt:new Date().toISOString(),stopRequested:job!.state==='running',...(job!.state==='queued'?{state:'paused',stage:'paused'}:{})});return bootstrapView();}
-export async function claimBootstrap(workerUrl?:string){const old=await bootstrapJob();if(!claimable(old))return null;const at=new Date().toISOString();return replace(old!,{...old!,revision:old!.revision+1,state:'running',stage:'prices',leaseId:crypto.randomUUID(),leaseUntil:new Date(Date.now()+45*60000).toISOString(),updatedAt:at,workerUrl,lastError:''});}
+async function recoverCompletedWorker(old:BootstrapJob|null){if(old?.state!=='running'||!old.workerUrl)return old;const run=old.workerUrl.match(/^https:\/\/github\.com\/furkanyrtsvr\/komponent-radari\/actions\/runs\/(\d+)$/)?.[1];if(!run)return old;try{const r=await fetch('https://api.github.com/repos/furkanyrtsvr/komponent-radari/actions/runs/'+run,{headers:{accept:'application/vnd.github+json','user-agent':'Komponent-Radari'},signal:AbortSignal.timeout(15000)});if(!r.ok)return old;const status=await r.json() as {status:string;html_url:string};const next=completedWorkerRecovery(old,status.html_url,status.status);return next?await replace(old,next):old;}catch{return old;}}
+export async function claimBootstrap(workerUrl?:string){const old=await recoverCompletedWorker(await bootstrapJob());if(!claimable(old))return null;const at=new Date().toISOString();return replace(old!,{...old!,revision:old!.revision+1,state:'running',stage:'prices',leaseId:crypto.randomUUID(),leaseUntil:new Date(Date.now()+45*60000).toISOString(),updatedAt:at,workerUrl,lastError:''});}
 export async function leasedBootstrap(id:string,lease:string){const job=await bootstrapJob();if(!job||job.id!==id||job.leaseId!==lease||job.state!=='running'||Date.parse(job.leaseUntil||'')<Date.now())throw new HttpError(409,'Bu çalışma artık etkin değil.');return job;}
 export async function beatBootstrap(id:string,lease:string,stage:BootstrapJob['stage'],progress?:BootstrapJob['progress']){const job=await leasedBootstrap(id,lease);return replace(job,{...job,revision:job.revision+1,stage,progress:progress||job.progress,updatedAt:new Date().toISOString(),leaseUntil:new Date(Date.now()+45*60000).toISOString()});}
 export async function finishBootstrapRound(id:string,lease:string,seconds:number,error?:string,retryable=false){const old=await leasedBootstrap(id,lease),archive=await activeArchive();const next=finishTransferRound(old,seconds,archive?.stores.filter(s=>s.id!=='ozdisan').reduce((n,s)=>n+s.offers,0)||0,error,retryable);return replace(old,next);}
