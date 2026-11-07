@@ -62,7 +62,7 @@ async function run(){
  // Only current, fully prepared delta rows are marked ready in this frozen batch.
  await status({stage:'publishing',changed});
  const readyDelta=all.filter(row=>delta.has(row.source_id)&&(db.prepare('SELECT fingerprint FROM observations WHERE source_id=?').get(row.source_id) as any).fingerprint===row.fingerprint);
- const newReady=readyDelta.filter(row=>readyOnServer.get(row.source_id)!==row.image_key);await transferPrepared(newReady,rows=>call('archive-build',{action:'ready',id,rows:rows.map(row=>({sourceId:row.source_id,imageKey:row.image_key,originalBytes:row.original_bytes}))}));
+ const newReady=readyDelta.filter(row=>readyOnServer.get(row.source_id)!==row.image_key);await transferPrepared(newReady.map(row=>({sourceId:row.source_id,imageKey:row.image_key,originalBytes:row.original_bytes,payload:row.payload})),rows=>call('archive-build',{action:'ready',id,rows}));
  if(!all.length)throw new Error('Henüz fiyatı ve görseli tamamlanmış ürün yok; önceki yayın korunuyor.');
  const grouped=new Map<string,any[]>();for(const row of all){const part=partition(row.preview.key),values=grouped.get(part)||[];values.push({storeId:row.store_id,preview:row.preview});grouped.set(part,values);}
  const chunks:ReadyArchive['chunks']=[],chunkJobs:any[][]=[];let productCount=0;

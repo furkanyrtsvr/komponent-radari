@@ -1,3 +1,4 @@
+import {virtualDigestsSql,VIRTUAL_ROWS_SQL,preparedObservation,virtualMetadata} from '@/lib/archive-virtual';
 import {assetPage,ARCHIVE_READY_PAGE,ARCHIVE_PAYLOAD_PAGE} from '@/lib/archive-runtime-bounds';
 import {retireArchivePage} from '@/lib/server/archive-retention';
 import {stageSourcesSql,copyStageSql,STAGING_PAGE,RECOVER_ACTIVE_BUILD_SQL} from '@/lib/archive-staging';
@@ -21,6 +22,7 @@ export async function GET(request:Request){try{
   const stored=await binding().prepare('SELECT url,image_key AS key,bytes,original_bytes FROM archive_image_cache WHERE url>? ORDER BY url LIMIT 500').bind(cursor).all<{url:string;key:string;bytes:number;original_bytes:number}>();return Response.json({rows:stored.results.filter(r=>r.bytes>0),next:stored.results.length===500?stored.results.at(-1)!.url:null});
  }
  const id=uuid.parse(params.get('id'));
+ const batchMeta=await one<{manifest:string;cutoff:string}>('archive_batches',{id}),meta=batchMeta?.manifest?JSON.parse(batchMeta.manifest):{};if(meta.virtual&&params.has('digests')){const all=!meta.incremental||meta.reset,rows=await binding().prepare(virtualDigestsSql(all)).bind(id,cursor,batchMeta!.cutoff,...(all?[]:[meta.fromSequence,meta.sequence])).all();return Response.json({rows:rows.results,next:rows.results.length===1000?(rows.results.at(-1) as any).source_id:null});}
  if(params.has('digests')){const rows=await binding().prepare("SELECT source_id,checked_at,ready,image_key,COALESCE(json_extract(payload,'$.readerRevision'),0) AS revision FROM archive_batch_rows WHERE batch_id=? AND source_id>? ORDER BY source_id LIMIT 1000").bind(id,cursor).all();return Response.json({rows:rows.results,next:rows.results.length===1000?(rows.results.at(-1) as any).source_id:null});}
 
  const rows=await binding().prepare('SELECT source_id,store_id,url,checked_at,payload FROM archive_batch_rows WHERE batch_id=? AND source_id>? ORDER BY source_id LIMIT 200').bind(id,cursor).all();return Response.json(rows.results);
@@ -29,7 +31,7 @@ export async function POST(request:Request){try{
  authorizeCollector(request);const raw=await request.text();if(raw.length>1000000)throw new HttpError(413,'Katalog isteği çok büyük.');const body=JSON.parse(raw);
  if(body.action==='retire')return Response.json(await retireArchivePage());
  if(body.action==='begin'){
-  if(body.recover===true){const active=await publishedArchive();if(active){const old=await binding().prepare(RECOVER_ACTIVE_BUILD_SQL).bind(active.id).first<{id:string;cutoff:string;manifest:string}>();if(old){const metadata=JSON.parse(old.manifest),count=await binding().prepare('SELECT COUNT(*) AS n,COALESCE(SUM(ready=1),0) AS ready FROM archive_batch_rows WHERE batch_id=?').bind(old.id).first<{n:number;ready:number}>();return Response.json({id:old.id,cutoff:old.cutoff,candidates:count?.n||0,alreadyReady:count?.ready||0,sequence:metadata.sequence,staged:metadata.staged!==false,reset:body.base!==active.id,base:active.id,baseOffers:active.offers,recovered:true});}}}
+  if(body.recover===true){const active=await publishedArchive();if(active){const old=await binding().prepare(RECOVER_ACTIVE_BUILD_SQL).bind(active.id).first<{id:string;cutoff:string;manifest:string}>();if(old){const metadata=virtualMetadata(JSON.parse(old.manifest));await binding().prepare("UPDATE archive_batches SET manifest=? WHERE id=? AND state='building'").bind(JSON.stringify(metadata),old.id).run();const count=await binding().prepare('SELECT COUNT(*) AS n,COALESCE(SUM(ready=1),0) AS ready FROM archive_batch_rows WHERE batch_id=?').bind(old.id).first<{n:number;ready:number}>();return Response.json({id:old.id,cutoff:old.cutoff,candidates:count?.n||0,alreadyReady:count?.ready||0,sequence:metadata.sequence,staged:metadata.staged!==false,reset:metadata.reset||body.base!==active.id,base:active.id,baseOffers:active.offers,recovered:true});}}}
 
   const id=uuid.parse(body.id),previous=await one<{state:string;cutoff:string;manifest:string|null}>('archive_batches',{id}),cutoff=previous?.cutoff||new Date().toISOString();
   if(previous){if(previous.state!=='building')throw new HttpError(409,'Bu sürüm zaten yayımlandı.');const count=await binding().prepare('SELECT COUNT(*) AS n,COALESCE(SUM(ready=1),0) AS ready FROM archive_batch_rows WHERE batch_id=?').bind(id).first<{n:number;ready:number}>(),metadata=previous.manifest?JSON.parse(previous.manifest):{},base=metadata.base?await publishedArchive(metadata.base):null;return Response.json({id,cutoff,candidates:count?.n||0,alreadyReady:count?.ready||0,sequence:metadata.sequence||0,staged:metadata.staged!==false,reset:body.base!==metadata.base,base:metadata.base||null,baseOffers:base?.offers||0});}
@@ -37,9 +39,9 @@ export async function POST(request:Request){try{
   const active=await one<{payload:string}>('catalog_collection_runs',{id:'archive-active'}),current=active?validateArchiveManifest(JSON.parse(active.payload)):null;
   const cursor=z.number().int().nonnegative().parse(body.cursor||0),reset=incremental&&(!current||body.base!==current.id);
   const water=await binding().prepare('SELECT COALESCE(MAX(seq),0) AS seq FROM catalog_archive_changes').first<{seq:number}>(),sequence=water?.seq||0;
-  const metadata=JSON.stringify({incremental,base:current?.id||null,sequence,fromSequence:cursor,reset,staged:false,stageCursor:''});
+  const metadata=JSON.stringify({incremental,base:current?.id||null,sequence,fromSequence:cursor,reset,virtual:true,staged:true,stageCursor:''});
   await binding().prepare('INSERT INTO archive_batches(id,state,created_at,cutoff,manifest) VALUES(?,?,?,?,?)').bind(id,'building',cutoff,cutoff,metadata).run();
-  return Response.json({id,cutoff,candidates:0,sequence,reset,staged:false,base:current?.id||null,baseOffers:current?.offers||0});
+  return Response.json({id,cutoff,candidates:0,sequence,reset,staged:true,base:current?.id||null,baseOffers:current?.offers||0});
  }
  const id=uuid.parse(body.id),batch=await one<{state:string;cutoff:string;manifest:string|null}>('archive_batches',{id});
  if(batch?.state==='published'&&body.action==='publish'&&batch.manifest&&JSON.stringify(validateArchiveManifest(body.manifest))===batch.manifest)return Response.json({published:true,...JSON.parse(batch.manifest)});
@@ -52,7 +54,7 @@ export async function POST(request:Request){try{
   statements.push(binding().prepare('UPDATE archive_batches SET manifest=? WHERE id=? AND state=\'building\'').bind(JSON.stringify({...meta,stageCursor:next,staged:done}),id));
   await binding().batch(statements);return Response.json({staged:done,cursor:next,copied:ids.length});
  }
- if(body.action==='rows'){const ids=z.array(z.string().min(1).max(100)).min(1).max(ARCHIVE_PAYLOAD_PAGE).parse(body.sources);const result=await binding().prepare('SELECT source_id,store_id,url,checked_at,payload FROM archive_batch_rows WHERE batch_id=? AND source_id IN ('+ids.map(()=>'?').join(',')+')').bind(id,...ids).all();return Response.json(result.results);}
+ if(body.action==='rows'){const ids=z.array(z.string().min(1).max(100)).min(1).max(ARCHIVE_PAYLOAD_PAGE).parse(body.sources);const meta=batch.manifest?JSON.parse(batch.manifest):{},result=meta.virtual?await binding().prepare(VIRTUAL_ROWS_SQL).bind(id,JSON.stringify(ids),batch.cutoff).all():await binding().prepare('SELECT source_id,store_id,url,checked_at,payload FROM archive_batch_rows WHERE batch_id=? AND source_id IN ('+ids.map(()=>'?').join(',')+')').bind(id,...ids).all();return Response.json(result.results);}
  if(body.action==='verify-files'){
   const manifest=validateArchiveManifest(body.manifest);if(manifest.id!==id||manifest.cutoff!==batch.cutoff)throw new HttpError(400,'Yayın sürümü uyuşmuyor.');
   const digest=[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify(manifest))))].map(x=>x.toString(16).padStart(2,'0')).join(''),key='archive-validation:'+id;
@@ -63,17 +65,19 @@ export async function POST(request:Request){try{
   await binding().prepare('INSERT INTO catalog_collection_runs(id,updated_at,payload) VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET updated_at=excluded.updated_at,payload=excluded.payload').bind(key,new Date().toISOString(),JSON.stringify({digest,next:page.next})).run();return Response.json({next:page.next});
  }
  if(body.action==='ready'){
-  const rows=z.array(z.object({sourceId:z.string().min(1).max(100),imageKey:z.string().refine(archiveImageKey),originalBytes:z.number().int().positive().max(8000000).optional()})).min(1).max(50).parse(body.rows);
+  const rows=z.array(z.object({sourceId:z.string().min(1).max(100),imageKey:z.string().refine(archiveImageKey),originalBytes:z.number().int().positive().max(8000000).optional(),payload:z.string().max(250000).optional()})).min(1).max(50).parse(body.rows);
   const statements=[];
-  const candidates=await binding().prepare('SELECT source_id,payload,checked_at FROM archive_batch_rows WHERE batch_id=? AND source_id IN ('+rows.map(()=>'?').join(',')+')').bind(id,...rows.map(r=>r.sourceId)).all<{source_id:string;payload:string;checked_at:string}>();
+  const virtual=batch.manifest&&JSON.parse(batch.manifest).virtual;
+  const candidates=virtual?await binding().prepare('SELECT id AS source_id,store_id,url,checked_at,payload FROM catalog_snapshots WHERE id IN (SELECT value FROM json_each(?))').bind(JSON.stringify(rows.map(r=>r.sourceId))).all<{source_id:string;store_id:string;url:string;checked_at:string;payload:string}>():await binding().prepare('SELECT source_id,store_id,url,checked_at,payload FROM archive_batch_rows WHERE batch_id=? AND source_id IN ('+rows.map(()=>'?').join(',')+')').bind(id,...rows.map(r=>r.sourceId)).all<{source_id:string;store_id:string;url:string;checked_at:string;payload:string}>();
   const imageObjects=new Map<string,R2Object|null>();await Promise.all([...new Set(rows.map(r=>r.imageKey))].map(async key=>imageObjects.set(key,await archiveBucket().head(key))));
   for(const row of rows){
    const stored=candidates.results.find(s=>s.source_id===row.sourceId);
-   if(!stored)throw new HttpError(404,'Katalog gözlemi yok.');const record=upgradeSnapshotReader(validateSnapshot(JSON.parse(stored.payload),storeCatalog,Date.parse(stored.checked_at)));
+   if(!stored)throw new HttpError(404,'Katalog gözlemi yok.');const record=virtual?preparedObservation(row.payload||'',stored,batch.cutoff,storeCatalog):upgradeSnapshotReader(validateSnapshot(JSON.parse(stored.payload),storeCatalog,Date.parse(stored.checked_at)));
    if(!record?.product.image)throw new HttpError(400,'Ürünün kendi görsel kaynağı doğrulanmadı.');
    const image=imageObjects.get(row.imageKey);if(!image||image.httpMetadata?.contentType!=='image/webp')throw new HttpError(400,'Hazır ürün görseli bulunamadı.');
    statements.push(binding().prepare('INSERT OR IGNORE INTO archive_image_cache(url,image_key,bytes,original_bytes) VALUES(?,?,?,?)').bind(record.product.image,row.imageKey,image.size,row.originalBytes||image.size));
-   statements.push(binding().prepare('UPDATE archive_batch_rows SET ready=1,image_key=?,url=?,payload=? WHERE batch_id=? AND source_id=?').bind(row.imageKey,record.product.url,JSON.stringify({...JSON.parse(stored.payload),preparedImage:{bytes:image.size,originalBytes:row.originalBytes||image.size}}),id,row.sourceId));
+   if(virtual)statements.push(binding().prepare("INSERT INTO archive_batch_rows(id,batch_id,source_id,store_id,url,checked_at,payload,ready,image_key) VALUES(?,?,?,?,?,?,?,1,?) ON CONFLICT(id) DO UPDATE SET checked_at=excluded.checked_at,payload=excluded.payload,ready=1,image_key=excluded.image_key WHERE excluded.checked_at>=archive_batch_rows.checked_at").bind(id+':'+row.sourceId,id,row.sourceId,record.storeId,record.requestedUrl||record.product.url,record.checkedAt,JSON.stringify({...record,preparedImage:{bytes:image.size,originalBytes:row.originalBytes||image.size}}),row.imageKey));
+   else statements.push(binding().prepare('UPDATE archive_batch_rows SET ready=1,image_key=?,url=?,payload=? WHERE batch_id=? AND source_id=?').bind(row.imageKey,record.product.url,JSON.stringify({...JSON.parse(stored.payload),preparedImage:{bytes:image.size,originalBytes:row.originalBytes||image.size}}),id,row.sourceId));
   }
   await binding().batch(statements);return Response.json({ready:rows.length});
  }

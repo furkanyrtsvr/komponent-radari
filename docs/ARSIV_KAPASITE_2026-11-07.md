@@ -28,3 +28,11 @@ teklif aktarımı en fazla dört eşzamanlı küçük istekle yürür. D1 geçic
 sınırında bekleme/yeniden deneme, yer yetersizliğinde doğrulanmış yedekle
 alan açma vardır. Tamamlandığı GitHub üzerinden doğrulanan eski işçinin
 kilidi güvenli kontrol noktası korunarak serbest bırakılabilir.
+
+Yayın hazırlığı bütün fiyatları D1 içinde tekrar kopyalamaz. Mevcut fiyatlar
+kontrol tarihi sınırıyla sayfalı okunur; önceki donmuş gözlemler korunur.
+Yalnız görseli hazırlanmış teklifler, kaynak ürün kimliği ve gerçek kontrol
+tarihi doğrulanarak hazırlığa kaydedilir. Tamamı hâlâ ana fiyat arşivinde ve
+kalıcı kontrol dosyalarında bulunur. Yerel, ayrı D1/R2 API denetiminde tam
+kopya oluşmadığı, eski gözlemin tarihinin korunduğu, daha yeni ana fiyatın
+ezilmediği ve yanlış ürün kanıtının reddedildiği doğrulandı.
