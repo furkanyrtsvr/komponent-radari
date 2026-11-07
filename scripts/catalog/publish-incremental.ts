@@ -1,6 +1,6 @@
 import {loadPublicationCheckpoint,savePublicationCheckpoint} from './publication-checkpoint';
 import {retryNetwork,TransferError} from './reliable-transfer';
-import {maintainArchive} from './archive-maintenance';
+import {maintainArchive,withArchiveCapacity} from './archive-maintenance';
 import {ARCHIVE_READY_PAGE,ARCHIVE_PAYLOAD_PAGE} from '../../src/lib/archive-runtime-bounds';
 import {DatabaseSync} from 'node:sqlite';
 import {existsSync,mkdirSync,readFileSync,writeFileSync,unlinkSync} from 'node:fs';
@@ -27,9 +27,9 @@ async function object(value:unknown){const bytes=gzipSync(JSON.stringify(value))
 async function save(){db.exec('PRAGMA wal_checkpoint(TRUNCATE)');const copy=directory+'/state-'+crypto.randomUUID()+'.sqlite';try{db.prepare('VACUUM INTO ?').run(copy);const bytes=gzipSync(readFileSync(copy));await savePublicationCheckpoint(site+'/api/archive-publisher-state',headers,bytes);}finally{if(existsSync(copy))unlinkSync(copy);}}
 async function status(value:unknown){try{await fetch(site+'/api/archive-publisher-state',{method:'POST',headers:{...headers,'content-type':'application/json'},body:JSON.stringify(value),signal:AbortSignal.timeout(30000)});}catch{/* Status never replaces the durable state. */}}
 async function run(){
- await maintainArchive(site,headers);
+ await maintainArchive(site,headers,64);
  await status({stage:'changes'});
- const batch=await call('archive-build',{action:'begin',incremental:true,recover:true,id:crypto.randomUUID(),base:getMeta(db,'base'),cursor:Number(getMeta(db,'readSequence')||getMeta(db,'cursor')||0)}),id=batch.id;
+ const batch=await withArchiveCapacity(()=>call('archive-build',{action:'begin',incremental:true,recover:true,id:crypto.randomUUID(),base:getMeta(db,'base'),cursor:Number(getMeta(db,'readSequence')||getMeta(db,'cursor')||0)}),()=>maintainArchive(site,headers,64)),id=batch.id;
  if(!getMeta(db,'legacyImagesImported')&&existsSync(directory+'/images.sqlite')){const legacy=new DatabaseSync(directory+'/images.sqlite',{readOnly:true});try{for(const image of legacy.prepare('SELECT * FROM images').all() as any[]){const url=image.url,checked_at=image.checked_at;if(reusableImage(image))db.prepare('INSERT OR IGNORE INTO images VALUES(?,?,?,?,?)').run(url,image.key,image.bytes,image.original_bytes,checked_at);}setMeta(db,'legacyImagesImported','1');}finally{legacy.close();}}
  // Permanent mappings are cheap to enumerate once, even if a runner lost its cache.
  if(!getMeta(db,'imagesImported')){let cursor='';for(;;){const page=await call('archive-build?images=1&cursor='+encodeURIComponent(cursor));for(const image of page.rows)db.prepare('INSERT OR IGNORE INTO images VALUES(?,?,?,?,?)').run(image.url,image.key,image.bytes,image.original_bytes,new Date().toISOString());if(!page.next)break;cursor=page.next;}setMeta(db,'imagesImported','1');}

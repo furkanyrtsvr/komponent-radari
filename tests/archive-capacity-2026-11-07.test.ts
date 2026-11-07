@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
 import {RETIRED_ROWS_SQL,backupBeforeRemoval} from '../src/lib/archive-retention';
 import {savePublicationCheckpoint,loadPublicationCheckpoint,CHECKPOINT_PART_BYTES} from '../scripts/catalog/publication-checkpoint';
-import {maintainArchive} from '../scripts/catalog/archive-maintenance';
+import {maintainArchive,withArchiveCapacity} from '../scripts/catalog/archive-maintenance';
+test('full database retries publication only after durable capacity recovery, without a futile loop',async()=>{let calls=0,retired=0;const value=await withArchiveCapacity(async()=>{if(!calls++)throw Error('D1_ERROR: Exceeded maximum DB size');return 'same-records';},async()=>{retired++;return 250;});assert.equal(value,'same-records');assert.equal(retired,1);let attempts=0;await assert.rejects(withArchiveCapacity(async()=>{attempts++;throw Error('D1_ERROR: Exceeded maximum DB size');},async()=>0));assert.equal(attempts,1);});
 test('concurrent retirement losing a deletion race does not falsely finish maintenance',async()=>{const original=globalThis.fetch;let calls=0;globalThis.fetch=(async()=>Response.json([{removed:0,done:false},{removed:250,done:false},{removed:0,done:true}][calls++])) as typeof fetch;try{await maintainArchive('https://test',{});assert.equal(calls,3);}finally{globalThis.fetch=original;}});
 test('collector yields maintenance after a bounded budget even with a large backlog',async()=>{const original=globalThis.fetch;let calls=0;globalThis.fetch=(async()=>{calls++;return Response.json({removed:250,done:false});}) as typeof fetch;try{await maintainArchive('https://test',{},16);assert.equal(calls,16);}finally{globalThis.fetch=original;}});
 test('retention protects active, pending, legacy and all source prices; only bounded retired copies move',async()=>{
