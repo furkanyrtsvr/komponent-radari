@@ -12,7 +12,7 @@ import {storeCatalog} from '../../src/lib/catalog';
 import {compactProductImage,downloadProductImage,digest} from './archive-images';
 import {canonicalMerchantPath} from '../../src/lib/merchant-url-aliases';
 const arg=(k:string,d='')=>process.argv.find(a=>a.startsWith('--'+k+'='))?.split('=').slice(1).join('=')||d;
-const site=arg('site','https://komponent-radari.equalwood4.chatgpt.site'),secret=process.env.CATALOG_INGEST_SECRET;if(!secret||secret.length<32)throw new Error('Yetkili toplayıcı anahtarı gerekli.');
+const site=arg('site','https://komponent-radari.fyphotos22-24.chatgpt.site'),secret=process.env.CATALOG_INGEST_SECRET;if(!secret||secret.length<32)throw new Error('Yetkili toplayıcı anahtarı gerekli.');
 const headers={authorization:'Bearer '+secret},directory=resolve('work/archive-publisher');mkdirSync(directory,{recursive:true});
 const cache=new DatabaseSync(resolve(directory,'images.sqlite'));cache.exec('CREATE TABLE IF NOT EXISTS images(url TEXT PRIMARY KEY,key TEXT NOT NULL,bytes INTEGER NOT NULL,original_bytes INTEGER NOT NULL,checked_at TEXT NOT NULL)');
 async function call(path:string,body?:unknown,binary?:Uint8Array){

@@ -14,7 +14,7 @@ import {archiveProducts} from '../../src/lib/archive-discovery';
 import {validateSnapshot,upgradeSnapshotReader,SNAPSHOT_TTL_MS} from '../../src/lib/catalog-snapshot';
 import {imagePath,validateArchiveManifest,type ReadyArchive} from '../../src/lib/ready-archive';
 import {storeCatalog} from '../../src/lib/catalog';
-const site=process.env.ARCHIVE_SITE||'https://komponent-radari.equalwood4.chatgpt.site',secret=process.env.CATALOG_INGEST_SECRET;
+const site=process.env.ARCHIVE_SITE||'https://komponent-radari.fyphotos22-24.chatgpt.site',secret=process.env.CATALOG_INGEST_SECRET;
 if(!secret||secret.length<32)throw new Error('Yetkili toplayıcı bağlantısı gerekli.');
 const headers={authorization:'Bearer '+secret},directory=resolve(process.env.PUBLICATION_WORKDIR||'work/archive-publisher'),file=directory+'/publication.sqlite';mkdirSync(directory,{recursive:true});
 async function call(path:string,body?:any,binary?:Uint8Array){return retryNetwork(async()=>{const response=await fetch(site+'/api/'+path,{method:binary?'PUT':body?'POST':'GET',headers:{...headers,...(binary?{'content-type':'application/octet-stream'}:body?{'content-type':'application/json'}:{})},body:binary?binary as BodyInit:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(90000)});if(!response.ok){const message='Yayın API HTTP '+response.status+' · '+(body?.action||path.split('?')[0]);if(response.status>=500||response.status===429||response.status===408)throw new TransferError(message);let detail='';try{detail=String((await response.json() as any).error||'').slice(0,200);}catch{}throw new Error(message+' · '+detail);}return await response.json() as any;});}

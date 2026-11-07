@@ -1,6 +1,6 @@
 // One-time safe transition: ask the old worker to checkpoint, never cancel it.
 export {};
-const site=process.env.ARCHIVE_SITE||'https://komponent-radari.equalwood4.chatgpt.site',secret=process.env.CATALOG_INGEST_SECRET,token=process.env.GH_TOKEN;
+const site=process.env.ARCHIVE_SITE||'https://komponent-radari.fyphotos22-24.chatgpt.site',secret=process.env.CATALOG_INGEST_SECRET,token=process.env.GH_TOKEN;
 if(!secret||!token)throw new Error('Güvenli geçiş bağlantısı gerekli.');
 async function api(body?:unknown){const r=await fetch(site+'/api/archive-bootstrap',{method:body?'POST':'GET',headers:{authorization:'Bearer '+secret,...(body?{'content-type':'application/json'}:{})},body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(30000)});if(!r.ok)throw new Error('Geçiş API HTTP '+r.status);return (await r.json() as any).job;}
 const before=await api();if(!before||!['running','queued'].includes(before.state))throw new Error('Devralınacak etkin ilk tarama yok; otomatik yeniden başlatılmadı.');

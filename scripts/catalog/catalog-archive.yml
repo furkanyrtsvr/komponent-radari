@@ -68,7 +68,7 @@ jobs:
           if [ "$RECOVERY_SET" = "hobidevre-max7219-2026-10-25" ]; then
             RECOVERY_ARGS=(--targets=scripts/catalog/recovery/hobidevre-max7219-2026-10-25.json)
           fi
-          node --import tsx scripts/catalog/catalogue-b.ts --collect --limit="$COLLECTION_LIMIT" --site=https://komponent-radari.equalwood4.chatgpt.site "${RECOVERY_ARGS[@]}"
+          node --import tsx scripts/catalog/catalogue-b.ts --collect --limit="$COLLECTION_LIMIT" --site=https://komponent-radari.fyphotos22-24.chatgpt.site "${RECOVERY_ARGS[@]}"
       - uses: actions/cache/save@v4
         if: always()
         with:

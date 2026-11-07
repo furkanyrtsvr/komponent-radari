@@ -23,4 +23,4 @@ jobs:
           CATALOG_INGEST_SECRET: ${{ secrets.CATALOG_INGEST_SECRET }}
         run: |
           test -n "$CATALOG_INGEST_SECRET" || exit 1
-          node --import tsx scripts/catalog/catalogue-b.ts --collect --requests-only --limit=8 --site=https://komponent-radari.equalwood4.chatgpt.site
+          node --import tsx scripts/catalog/catalogue-b.ts --collect --requests-only --limit=8 --site=https://komponent-radari.fyphotos22-24.chatgpt.site

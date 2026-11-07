@@ -8,7 +8,7 @@ import {DatabaseSync} from 'node:sqlite';
 import {firstPassProgress,compactCollectorCheckpoint,retainLocalCheckpoint} from './bootstrap-queue';
 import {storeCatalog} from '../../src/lib/catalog';
 import type {BootstrapJob,BootstrapProgress} from '../../src/lib/archive-bootstrap';
-const site=process.argv.find(a=>a.startsWith('--site='))?.slice(7)||'https://komponent-radari.equalwood4.chatgpt.site',secret=process.env.CATALOG_INGEST_SECRET;
+const site=process.argv.find(a=>a.startsWith('--site='))?.slice(7)||'https://komponent-radari.fyphotos22-24.chatgpt.site',secret=process.env.CATALOG_INGEST_SECRET;
 if(!secret||secret.length<32)throw new Error('Toplayıcı bağlantısı gerekli.');
 const headers={authorization:'Bearer '+secret},base=site+'/api/archive-bootstrap';
 async function api(body?:unknown){for(let n=0;;n++)try{const r=await fetch(base,{method:body?'POST':'GET',headers:{...headers,...(body?{'content-type':'application/json'}:{})},body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(30000)});if(!r.ok)throw new Error('Arşiv işi HTTP '+r.status);return await r.json() as {job:BootstrapJob|null};}catch(e){if(n>=2)throw e;await new Promise(r=>setTimeout(r,1000*(n+1)));}}

@@ -43,7 +43,7 @@ async function run(){
   db.prepare("INSERT OR REPLACE INTO metadata VALUES('generation',?)").run(generation);
  }
  if(requestsOnly&&arg('targets'))throw new Error('İstek modu kurtarma listesiyle birleştirilemez.');
- const site=arg('site','https://komponent-radari.equalwood4.chatgpt.site'),secret=process.env.CATALOG_INGEST_SECRET;
+ const site=arg('site','https://komponent-radari.fyphotos22-24.chatgpt.site'),secret=process.env.CATALOG_INGEST_SECRET;
  const recoveryFile=arg('targets');
  const targets:{storeId:string;url:string}[]=recoveryFile?JSON.parse(readFileSync(recoveryFile,'utf8')):[];
  if(!Array.isArray(targets)||targets.length>100||recoveryFile&&!targets.length)throw new Error('Geçersiz kurtarma listesi.');

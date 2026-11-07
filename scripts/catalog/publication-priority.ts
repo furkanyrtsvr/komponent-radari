@@ -1,6 +1,6 @@
 import {appendFileSync} from 'node:fs';
 const secret=process.env.CATALOG_INGEST_SECRET;if(!secret||secret.length<32)throw new Error('Toplayıcı bağlantısı gerekli.');
-const headers={authorization:'Bearer '+secret},site='https://komponent-radari.equalwood4.chatgpt.site';
+const headers={authorization:'Bearer '+secret},site='https://komponent-radari.fyphotos22-24.chatgpt.site';
 const r=await fetch(site+'/api/archive-bootstrap',{headers,signal:AbortSignal.timeout(30000)});if(!r.ok)throw new Error('Tarama durumu okunamadı: '+r.status);
 const {job}=await r.json() as {job:null|{state:string}};
 const active=Boolean(job&&['running','queued'].includes(job.state));

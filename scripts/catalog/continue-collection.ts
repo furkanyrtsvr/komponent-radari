@@ -2,7 +2,7 @@ import {spawn} from 'node:child_process';
 import {maintainArchive} from './archive-maintenance';
 import {appendFileSync} from 'node:fs';
 const secret=process.env.CATALOG_INGEST_SECRET;if(!secret||secret.length<32)throw new Error('Toplayıcı bağlantısı gerekli.');
-const site=process.env.ARCHIVE_SITE||'https://komponent-radari.equalwood4.chatgpt.site',deadline=Date.now()+Math.min(240,Math.max(1,Number(process.env.COLLECTION_SESSION_MINUTES||180)))*60000;
+const site=process.env.ARCHIVE_SITE||'https://komponent-radari.fyphotos22-24.chatgpt.site',deadline=Date.now()+Math.min(240,Math.max(1,Number(process.env.COLLECTION_SESSION_MINUTES||180)))*60000;
 async function state(){const r=await fetch(site+'/api/archive-bootstrap',{headers:{authorization:'Bearer '+secret},signal:AbortSignal.timeout(30000)});if(!r.ok)throw new Error('Tarama durumu okunamadı: '+r.status);return (await r.json() as {job:null|{state:string;lastError?:string}}).job;}
 await maintainArchive(site,{authorization:'Bearer '+secret});
 if(process.env.START_INITIAL_ARCHIVE==='true'){const r=await fetch(site+'/api/archive-bootstrap',{method:'POST',headers:{authorization:'Bearer '+secret,'content-type':'application/json'},body:JSON.stringify({action:'request'}),signal:AbortSignal.timeout(30000)});if(!r.ok)throw new Error('İlk tarama sürdürülemedi.');}
