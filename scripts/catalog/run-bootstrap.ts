@@ -13,7 +13,7 @@ if(!secret||secret.length<32)throw new Error('Toplayıcı bağlantısı gerekli.
 const headers={authorization:'Bearer '+secret},base=site+'/api/archive-bootstrap';
 async function api(body?:unknown){for(let n=0;;n++)try{const r=await fetch(base,{method:body?'POST':'GET',headers:{...headers,...(body?{'content-type':'application/json'}:{})},body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(30000)});if(!r.ok)throw new Error('Arşiv işi HTTP '+r.status);return await r.json() as {job:BootstrapJob|null};}catch(e){if(n>=2)throw e;await new Promise(r=>setTimeout(r,1000*(n+1)));}}
 if(process.env.START_INITIAL_ARCHIVE==='true')await api({action:'request'});
-await maintainArchive(site,headers);
+await maintainArchive(site,headers,16);
 const available=(await api()).job,active=available&&(available.state==='queued'||available.state==='running');
 if(process.env.GITHUB_OUTPUT)appendFileSync(process.env.GITHUB_OUTPUT,'active='+Boolean(active)+'\n');
 if(!active){console.log('Başlatılmış ilk arşiv işi yok.');process.exit(0);}

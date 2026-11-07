@@ -16,7 +16,7 @@ export async function retireArchivePage(){
  await archiveBucket().put(key,bytes,{sha256:digest,httpMetadata:{contentType:'application/json'},customMetadata:{sha256:digest}});
  const object=await archiveBucket().head(key);
  if(!object||object.size!==bytes.length||object.customMetadata?.sha256!==digest)throw new Error('Hazırlık yedeği doğrulanamadı; kayıtlar korunuyor.');
- },async rows=>{const results=await binding().batch(rows.map(row=>binding().prepare('DELETE FROM archive_batch_rows WHERE id=? AND batch_id=?').bind(row.id,row.batch_id)));return results.reduce((n,r)=>n+(r.meta.changes||0),0);});
+ },async rows=>{const statements=[];for(let i=0;i<rows.length;i+=50){const ids=rows.slice(i,i+50).map(row=>row.id);statements.push(binding().prepare('DELETE FROM archive_batch_rows WHERE id IN ('+ids.map(()=>'?').join(',')+')').bind(...ids));}const results=await binding().batch(statements);return results.reduce((n,r)=>n+(r.meta.changes||0),0);});
  await binding().prepare(`INSERT INTO catalog_collection_runs(id,updated_at,payload) VALUES('archive-retention',?,?) ON CONFLICT(id) DO UPDATE SET updated_at=excluded.updated_at,payload=json_object('backedUpRows',COALESCE(json_extract(catalog_collection_runs.payload,'$.backedUpRows'),0)+?,'lastBackup',?,'state','running')`).bind(new Date().toISOString(),JSON.stringify({backedUpRows:removed,lastBackup:key,state:'running'}),removed,key).run();
  return {removed,done:false,backup:key};
 }
