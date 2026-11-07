@@ -1,5 +1,6 @@
 import {TransferError,transientTransfer,retryNetwork} from './reliable-transfer';
 import {maintainArchive} from './archive-maintenance';
+import {workerCompleted} from './completed-worker';
 import {spawn} from 'node:child_process';
 import {readFileSync,writeFileSync,unlinkSync,mkdirSync,existsSync,appendFileSync} from 'node:fs';
 import {gzipSync,gunzipSync} from 'node:zlib';
@@ -18,6 +19,7 @@ const available=(await api()).job,active=available&&(available.state==='queued'|
 if(process.env.GITHUB_OUTPUT)appendFileSync(process.env.GITHUB_OUTPUT,'active='+Boolean(active)+'\n');
 if(!active){console.log('Başlatılmış ilk arşiv işi yok.');process.exit(0);}
 const workerUrl=process.env.GITHUB_RUN_ID?'https://github.com/furkanyrtsvr/komponent-radari/actions/runs/'+process.env.GITHUB_RUN_ID:undefined;
+if(available?.state==='running'&&available.workerUrl&&available.leaseId&&Date.parse(available.leaseUntil||'')>Date.now()){try{if(await workerCompleted(available.workerUrl,process.env.GH_TOKEN)){await api({action:'finish',id:available.id,lease:available.leaseId,seconds:0,error:'Tamamlanmış işçi; son güvenli kayıttan otomatik devam.',retryable:true});console.log(JSON.stringify({phase:'finished-owner-recovered',attempted:available.lastAttempted}));}}catch{console.log('Devralma durumu değişti; güncel kilit yeniden kontrol ediliyor.');}}
 let job=(await api({action:'claim',workerUrl})).job;if(!job){console.log('İlk arşiv işi başka bir turda çalışıyor.');process.exit(0);}
 const id=job.id,lease=job.leaseId!,started=Date.now(),directory='work/catalogue-b',file=directory+'/catalogue.sqlite',progressFile=directory+'/bootstrap-progress.json';mkdirSync(directory,{recursive:true});
 let stage:'prices'|'images'|'checkpoint'='prices',child:ReturnType<typeof spawn>|undefined,beating=false,heartbeatError:unknown,progress:BootstrapProgress|undefined=job.progress;

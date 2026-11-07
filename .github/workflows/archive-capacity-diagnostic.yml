@@ -15,3 +15,4 @@ jobs:
       - run: node --import tsx scripts/catalog/diagnose-capacity.ts
         env:
           CATALOG_INGEST_SECRET: ${{ secrets.CATALOG_INGEST_SECRET }}
+          GH_TOKEN: ${{ github.token }}
