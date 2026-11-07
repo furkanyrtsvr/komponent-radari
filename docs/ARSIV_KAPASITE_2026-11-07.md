@@ -24,7 +24,7 @@ Aktif sürümün kontrol tarihinden eski yarım hazırlıklar artık yayımlanam
 için aynı doğrulanmış yedekleme işlemine dahildir. Yeni hazırlık 500 kayıttan
 büyük kopyalama yapmaz; kaynak kimlikleri tek JSON parametresinde gönderilir.
 İlerleme her sayfada saklanır; tamamlanmamış hazırlık yayımlanamaz. Hazır
-teklif aktarımı en fazla dört eşzamanlı küçük istekle yürür. D1 geçici yük
+teklif aktarımı en fazla altı eşzamanlı, 20 kayıt / 600 KB sınırındaki istekle yürür. D1 geçici yük
 sınırında bekleme/yeniden deneme, yer yetersizliğinde doğrulanmış yedekle
 alan açma vardır. Tamamlandığı GitHub üzerinden doğrulanan eski işçinin
 kilidi güvenli kontrol noktası korunarak serbest bırakılabilir.
