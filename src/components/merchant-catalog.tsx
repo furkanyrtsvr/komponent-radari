@@ -178,7 +178,7 @@ export function MerchantCatalog({
   },[archiveMode,archiveReload]);
   useEffect(() => {
     if (!manifest||(archiveMode&&!edition)) return;
-    const nextWorker = new Worker(archiveMode?'/catalog/ready-worker.js?v=priced-20261107':"/catalog/search-worker.js?v=20261023-discovery2", {type:"module"});
+    const nextWorker = new Worker(archiveMode?'/catalog/ready-worker.js?v=priced-20261107-2':"/catalog/search-worker.js?v=20261023-discovery2", {type:"module"});
     worker.current = nextWorker;
     nextWorker.onmessage = (event: MessageEvent<SearchResponse>) => {
       if (event.data.requestId !== request.current) return;

@@ -1,4 +1,4 @@
-import {decodeReadyChunk,searchReadyProducts} from './ready-search.js';
+import {decodeReadyChunk,searchReadyProducts} from './ready-search.js?v=priced-20261107-2';
 const editions=new Map();let latest=0;
 async function loadEdition(manifest,requestId){
  let existing=editions.get(manifest.id);if(existing)return existing;
