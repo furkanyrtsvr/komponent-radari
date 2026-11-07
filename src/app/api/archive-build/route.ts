@@ -48,7 +48,7 @@ export async function POST(request:Request){try{
   const meta=batch.manifest?JSON.parse(batch.manifest):{};if(meta.staged!==false)return Response.json({staged:true});
   const all=!meta.incremental||meta.reset,query=binding().prepare(stageSourcesSql(all));
   const ids=(await query.bind(meta.stageCursor||'',batch.cutoff,...(all?[]:[meta.fromSequence,meta.sequence])).all<{id:string}>()).results.map(r=>r.id),next=ids.at(-1)||meta.stageCursor||'',done=ids.length<STAGING_PAGE;
-  const statements=[];if(ids.length)statements.push(binding().prepare(copyStageSql(ids.length)).bind(id,id,...ids,batch.cutoff));
+  const statements=[];if(ids.length)statements.push(binding().prepare(copyStageSql(ids.length)).bind(id,id,JSON.stringify(ids),batch.cutoff));
   statements.push(binding().prepare('UPDATE archive_batches SET manifest=? WHERE id=? AND state=\'building\'').bind(JSON.stringify({...meta,stageCursor:next,staged:done}),id));
   await binding().batch(statements);return Response.json({staged:done,cursor:next,copied:ids.length});
  }

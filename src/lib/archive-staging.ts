@@ -1,3 +1,3 @@
-export const STAGING_PAGE=80;
+export const STAGING_PAGE=500;
 export function stageSourcesSql(all:boolean){return 'SELECT s.id FROM catalog_snapshots s WHERE s.id>? AND s.checked_at<=?'+(all?'':' AND EXISTS(SELECT 1 FROM catalog_archive_changes c WHERE c.source_id=s.id AND c.seq>? AND c.seq<=?)')+' ORDER BY s.id LIMIT '+STAGING_PAGE;}
-export function copyStageSql(size:number){if(size<1||size>STAGING_PAGE)throw Error('Hazırlık sayfası boyutu geçersiz.');return "INSERT OR IGNORE INTO archive_batch_rows(id,batch_id,source_id,store_id,url,checked_at,payload) SELECT ?||':'||id,?,id,store_id,url,checked_at,payload FROM catalog_snapshots WHERE id IN ("+Array(size).fill('?').join(',')+') AND checked_at<=?';}
+export function copyStageSql(size:number){if(size<1||size>STAGING_PAGE)throw Error('Hazırlık sayfası boyutu geçersiz.');return "INSERT OR IGNORE INTO archive_batch_rows(id,batch_id,source_id,store_id,url,checked_at,payload) SELECT ?||':'||id,?,id,store_id,url,checked_at,payload FROM catalog_snapshots WHERE id IN (SELECT value FROM json_each(?)) AND checked_at<=?";}
