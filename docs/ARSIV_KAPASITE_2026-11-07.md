@@ -36,3 +36,9 @@ tarihi doğrulanarak hazırlığa kaydedilir. Tamamı hâlâ ana fiyat arşivind
 kalıcı kontrol dosyalarında bulunur. Yerel, ayrı D1/R2 API denetiminde tam
 kopya oluşmadığı, eski gözlemin tarihinin korunduğu, daha yeni ana fiyatın
 ezilmediği ve yanlış ürün kanıtının reddedildiği doğrulandı.
+
+İlk uyarlamada bağımsız katalog sayfaları en fazla dört eşzamanlı okumayla
+alınır. Hazır görsellerin boyut bilgileri kaynak katalog sayfasıyla birlikte
+doğrulanmış önbellekten gelir; aynı görsel için ayrı ayrı ağ kontrolü
+gerekmez. Bir sayfa hata verirse SQLite kapanmadan diğer okumalar tamamlanır.
+Anahtar/tarih doğrulamaları ve istek boyutu sınırları korunur.

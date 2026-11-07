@@ -1,0 +1,2 @@
+/** Drain in-flight consumers before surfacing an error: callers may close SQLite. */
+export async function parallelPages(start:number,total:number,workers:number,consume:(page:number)=>Promise<void>){let next=start,stopped=false,failure:unknown;await Promise.all(Array.from({length:workers},async()=>{while(!stopped){const page=next++;if(page>=total)return;try{await consume(page);}catch(e){stopped=true;failure=e;}}}));if(stopped)throw failure;}
