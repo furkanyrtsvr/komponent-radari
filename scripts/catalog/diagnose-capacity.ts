@@ -1,0 +1,2 @@
+const site='https://komponent-radari.fyphotos22-24.chatgpt.site',secret=process.env.CATALOG_INGEST_SECRET;if(!secret)throw Error('Collector secret missing');
+const r=await fetch(site+'/api/archive-build',{method:'POST',headers:{authorization:'Bearer '+secret,'content-type':'application/json'},body:JSON.stringify({action:'retire'}),signal:AbortSignal.timeout(90000)});const value=await r.json();console.log(JSON.stringify({status:r.status,result:value}));if(!r.ok)process.exitCode=1;
