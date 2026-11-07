@@ -178,11 +178,11 @@ export function MerchantCatalog({
   },[archiveMode,archiveReload]);
   useEffect(() => {
     if (!manifest||(archiveMode&&!edition)) return;
-    const nextWorker = new Worker(archiveMode?'/catalog/ready-worker.js?v=priced-20261107-2':"/catalog/search-worker.js?v=20261023-discovery2", {type:"module"});
+    const nextWorker = new Worker(archiveMode?'/catalog/ready-worker.js?v=priced-20261107-3':"/catalog/search-worker.js?v=20261023-discovery2", {type:"module"});
     worker.current = nextWorker;
     nextWorker.onmessage = (event: MessageEvent<SearchResponse>) => {
       if (event.data.requestId !== request.current) return;
-      if(event.data.previews){const items=event.data.previews;setPreviews(Object.fromEntries(items.map(p=>[p.url,p])));items.forEach(p=>attemptedPreviews.current.add(p.url));}
+      if(event.data.previews){const items=event.data.previews;setPreviews(current=>({...current,...Object.fromEntries(items.map(p=>[p.url,p]))}));items.forEach(p=>attemptedPreviews.current.add(p.url));}
       if (event.data.results) setRows(event.data.results);
       setStatus(event.data);
     };
@@ -192,7 +192,7 @@ export function MerchantCatalog({
   useEffect(() => {
     if (!worker.current || !manifest||(archiveMode&&!edition)) return;
     const id = ++request.current;
-    setRows([]);setSelected(null);setStatus({ requestId: id, progress: 0, chunks: archiveMode?edition!.chunks.length:1 });
+    setRows([]);setSelected(null);if(archiveMode)setPreviews({});setStatus({ requestId: id, progress: 0, chunks: archiveMode?edition!.chunks.length:1 });
     const timer = setTimeout(() => worker.current?.postMessage({ requestId: id, query, group, store, page,manifest:edition }), query ? 300 : 0);
     return () => clearTimeout(timer);
   }, [query, group, store, page, manifest,archiveMode,edition,archiveReload]);

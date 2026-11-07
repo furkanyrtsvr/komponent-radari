@@ -9,3 +9,5 @@ Tarayıcıdaki içerik özetiyle adreslenen dosyaların reddedilmesi düzeltildi
 İlk geçiş yeni görsel indirmeyi beklemeden fiyatları yayımlar. Sonraki bağımsız yayın turları mevcut kalıcı görselleri tekrar kullanır ve eksikleri hazırlamaya devam eder. Bütün dosyalar doğrulanmadan etkin katalog değiştirilmez.
 
 Yeni doğrulamalar: `tests/priced-catalog-2026-11-07.test.ts` — görselsiz fiyat, fiyat/görsel bağımsızlığı, hatalı fiyatın reddi, eski tarihin korunması, değişen kayıt önbelleği, iki arama yolu, içerik adresli tarayıcı dosyaları ve dosya boyut sınırları. Ayrı yerel D1/R2 denemesinde görselsiz fiyat yayını, B arşiv önizlemesi, metre/paket bilgisi ve önceki tekliflerin korunması denetlendi. Eski testler tekrar çalıştırılmadı.
+
+Büyük katalogda ürün adlarının birim/model arama gösterimleri dosya okunurken bir kez hazırlanır. Voltaj, boyut ve konnektör eşleştirme kuralları değişmez. İlk doğrulanmış dosyanın sonuçları kalan dosyalar yüklenirken gösterilir; toplam eşleşme sayısı tamamlanana kadar kesin sayı verilmez.

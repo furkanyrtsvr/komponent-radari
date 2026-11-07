@@ -347,6 +347,7 @@ export function catalogSearchText(name) {
  }
  return text;
 }
+export function prepareCatalogSearchTitle(name){const text=catalogSearchText(name);return {compact:ascii(name).replace(/\s/g,''),text,words:text.split(' ').filter(Boolean)};}
 export function catalogQuery(query) {
  const normalized=searchableText(query);
  // Search discovers model families; canonical identity still keeps full model
@@ -354,7 +355,7 @@ export function catalogQuery(query) {
  const expected=normalized.split(' ').filter(Boolean).map(term=>({term,technical:/\d/.test(term)&&!(/^[a-z]{2,}\d[a-z0-9]*$/.test(term))}));
  const connector=normalized.match(/\b(?:erkek erkek|disi disi|erkek disi)\b/)?.[0];
  const requiredModels=modelCodes(technicalText(query));
- return name=>{
+ const matches=name=>{
   // Avoid expensive unit normalization for a million unrelated component names.
   if(requiredModels.length) {
    const compact=ascii(name).replace(/\s/g,'');
@@ -365,6 +366,8 @@ export function catalogQuery(query) {
   const actual=normalizedName.split(' ').filter(Boolean);
   return expected.every(({term,technical})=>actual.some(word=>technical?word===term:word.startsWith(term)));
  };
+ matches.prepared=value=>{if(requiredModels.length&&!requiredModels.every(code=>value.compact.includes(code)))return false;if(connector&&!value.text.includes(connector))return false;return expected.every(({term,technical})=>value.words.some(word=>technical?word===term:word.startsWith(term)));};
+ return matches;
 }
 export function queryMatchesCatalogTitle(query,name) {return catalogQuery(query)(name);}
 export function matchBucket(key) {

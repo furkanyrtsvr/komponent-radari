@@ -7,6 +7,7 @@ import {preparePriceCatalog,packCatalogProducts} from '../scripts/catalog/price-
 import {archiveProducts,archivePage} from '../src/lib/archive-discovery';
 import {validateArchiveManifest} from '../src/lib/ready-archive';
 import {searchReadyProducts,decodeReadyChunk} from '../public/catalog/ready-search.js';
+import {catalogQuery,prepareCatalogSearchTitle} from '../public/catalog/product-identity.js';
 const at='2026-11-07T13:00:00.000Z',old='2026-11-01T10:00:00.000Z';
 function row(id:string,changes:any={}){const url='https://www.ulutaselektronik.com/urun/'+id;return {source_id:id,store_id:'ulutas',url,checked_at:old,payload:JSON.stringify({storeId:'ulutas',checkedAt:old,product:{url,name:'KBU410 4A 1000V Köprü Diyot '+id,mpn:'KBU410',manufacturer:'',model:'KBU410',image:null,price:1788,currency:'TRY',vatIncluded:true,vatRate:20,packageQuantity:1,stockStatus:'in_stock',stockQuantity:10,specifications:'',warnings:[],quantityVerified:true,minimumOrderQuantity:1,orderStep:1,...changes}})};}
 function entries(db:DatabaseSync){return (db.prepare('SELECT entry FROM priced_catalog').all() as {entry:string}[]).map(r=>JSON.parse(r.entry));}
@@ -50,4 +51,16 @@ test('unchanged prices reuse compact views, changed prices alone are validated a
 
 test('large catalog search copies only the visible forty previews while counting all matches',()=>{
  let copies=0;const products=Array.from({length:1000},(_,i)=>{const v:any={url:'https://example.com/'+i,key:'k'+i,price:100,checkedAt:old,image:null,imagePending:true};Object.defineProperty(v,'archiveState',{enumerable:true,get(){copies++;return 'fresh';}});return {key:v.key,name:'KBU410 '+i,group:'Diğer',sources:[{url:v.url,storeId:'ulutas',name:'KBU410'}],previews:[v]};});const result=searchReadyProducts(products,{query:'KBU410',group:'all',store:'all',page:2},Date.parse(at));assert.equal(result.count,1000);assert.equal(result.results.length,40);assert.equal(result.results[0].key,'k80');assert.equal(result.hasMore,true);assert.equal(copies,40);
+});
+
+test('prepared search retains exact voltage, dimension, package and connector matching semantics',()=>{
+ const names=['STM32F103C6T6 Geliştirme Kartı','STM32F103C8T6 Geliştirme Kartı','12V 2A Adaptör','24V 2A Adaptör','10k Ohm 1/4W Direnç','10K 1% Direnç','100nF 50V Kondansatör','0.1uF 50V Kondansatör','40 Pin Erkek Dişi 20cm Jumper Kablo','40 Pin Erkek Erkek 20cm Jumper Kablo','KBU410 4A 1000V Köprü Diyot','5 Metre 0.35mm Kablo'];
+ for(const query of ['STM32F103C6T6','12V 2A','10k ohm 0.25w','100nF','40 pin erkek dişi 200mm','KBU410','0.35mm kablo']){const matches=catalogQuery(query);for(const name of names)assert.equal(matches.prepared(prepareCatalogSearchTitle(name)),matches(name),query+' / '+name);}
+});
+
+test('catalog worker displays the first verified page before remaining files finish loading',async()=>{
+ const id='00000000-0000-4000-8000-000000000008',original=globalThis.fetch,originalSelf=(globalThis as any).self,messages:any[]=[];let release!:()=>void;const blocked=new Promise<void>(resolve=>release=resolve);
+ function chunk(n:number){const url='https://example.com/'+n,bytes=gzipSync(JSON.stringify([{key:'key'+n,name:'KBU410',group:'Diğer',sources:[{url,storeId:'ulutas',name:'KBU410'}],previews:[{url,key:'key'+n,price:100,checkedAt:old,image:null,imagePending:true}]}]));return {bytes,sha:hash(bytes)};}
+ const a=chunk(1),b=chunk(2);globalThis.fetch=(async(url:any)=>{if(String(url).includes(b.sha))await blocked;return new Response((String(url).includes(b.sha)?b.bytes:a.bytes) as any);}) as typeof fetch;(globalThis as any).self={postMessage:(m:any)=>messages.push(m)};
+ try{await import(new URL('../public/catalog/ready-worker.js',import.meta.url).href+'?progress-check');const pending=(globalThis as any).self.onmessage({data:{requestId:1,manifest:{id,chunks:[a,b].map(c=>({file:'objects/'+c.sha+'.json.gz',sha256:c.sha,products:1}))},query:'',store:'all',group:'all',page:0}});for(let i=0;i<100&&!messages.some(m=>m.results?.length);i++)await new Promise(r=>setTimeout(r,2));assert.ok(messages.some(m=>m.done===false&&m.results?.length===1&&m.count===null));assert.ok(!messages.some(m=>m.done));release();await pending;assert.equal(messages.at(-1).done,true);assert.equal(messages.at(-1).count,2);}finally{release();globalThis.fetch=original;(globalThis as any).self=originalSelf;}
 });
