@@ -1,5 +1,6 @@
 import {assetPage,ARCHIVE_READY_PAGE,ARCHIVE_PAYLOAD_PAGE} from '@/lib/archive-runtime-bounds';
 import {retireArchivePage} from '@/lib/server/archive-retention';
+import {stageSourcesSql,copyStageSql,STAGING_PAGE} from '@/lib/archive-staging';
 import {z} from 'zod';
 import {authorizeCollector} from '@/lib/server/collector-auth';
 import {binding,one,HttpError} from '@/lib/server/db';
@@ -28,24 +29,29 @@ export async function POST(request:Request){try{
  authorizeCollector(request);const raw=await request.text();if(raw.length>1000000)throw new HttpError(413,'Katalog isteği çok büyük.');const body=JSON.parse(raw);
  if(body.action==='retire')return Response.json(await retireArchivePage());
  if(body.action==='begin'){
-  if(body.recover===true&&typeof body.base==='string'){const old=await binding().prepare("SELECT id,cutoff,manifest FROM archive_batches WHERE state='building' AND json_extract(manifest,'$.base')=? ORDER BY cutoff DESC LIMIT 1").bind(body.base).first<{id:string;cutoff:string;manifest:string}>();if(old){const metadata=JSON.parse(old.manifest),count=await binding().prepare('SELECT COUNT(*) AS n,COALESCE(SUM(ready=1),0) AS ready FROM archive_batch_rows WHERE batch_id=?').bind(old.id).first<{n:number;ready:number}>(),active=await publishedArchive();if(active&&active.id===body.base)return Response.json({id:old.id,cutoff:old.cutoff,candidates:count?.n||0,alreadyReady:count?.ready||0,sequence:metadata.sequence,reset:false,base:active.id,baseOffers:active.offers,recovered:true});}}
+  if(body.recover===true&&typeof body.base==='string'){const old=await binding().prepare("SELECT id,cutoff,manifest FROM archive_batches WHERE state='building' AND json_extract(manifest,'$.base')=? ORDER BY cutoff DESC LIMIT 1").bind(body.base).first<{id:string;cutoff:string;manifest:string}>();if(old){const metadata=JSON.parse(old.manifest),count=await binding().prepare('SELECT COUNT(*) AS n,COALESCE(SUM(ready=1),0) AS ready FROM archive_batch_rows WHERE batch_id=?').bind(old.id).first<{n:number;ready:number}>(),active=await publishedArchive();if(active&&active.id===body.base)return Response.json({id:old.id,cutoff:old.cutoff,candidates:count?.n||0,alreadyReady:count?.ready||0,sequence:metadata.sequence,staged:metadata.staged!==false,reset:false,base:active.id,baseOffers:active.offers,recovered:true});}}
 
   const id=uuid.parse(body.id),previous=await one<{state:string;cutoff:string;manifest:string|null}>('archive_batches',{id}),cutoff=previous?.cutoff||new Date().toISOString();
-  if(previous){if(previous.state!=='building')throw new HttpError(409,'Bu sürüm zaten yayımlandı.');const count=await binding().prepare('SELECT COUNT(*) AS n,COALESCE(SUM(ready=1),0) AS ready FROM archive_batch_rows WHERE batch_id=?').bind(id).first<{n:number;ready:number}>(),metadata=previous.manifest?JSON.parse(previous.manifest):{},base=metadata.base?await publishedArchive(metadata.base):null;return Response.json({id,cutoff,candidates:count?.n||0,alreadyReady:count?.ready||0,sequence:metadata.sequence||0,reset:body.base!==metadata.base,base:metadata.base||null,baseOffers:base?.offers||0});}
+  if(previous){if(previous.state!=='building')throw new HttpError(409,'Bu sürüm zaten yayımlandı.');const count=await binding().prepare('SELECT COUNT(*) AS n,COALESCE(SUM(ready=1),0) AS ready FROM archive_batch_rows WHERE batch_id=?').bind(id).first<{n:number;ready:number}>(),metadata=previous.manifest?JSON.parse(previous.manifest):{},base=metadata.base?await publishedArchive(metadata.base):null;return Response.json({id,cutoff,candidates:count?.n||0,alreadyReady:count?.ready||0,sequence:metadata.sequence||0,staged:metadata.staged!==false,reset:body.base!==metadata.base,base:metadata.base||null,baseOffers:base?.offers||0});}
   const incremental=body.incremental===true;
   const active=await one<{payload:string}>('catalog_collection_runs',{id:'archive-active'}),current=active?validateArchiveManifest(JSON.parse(active.payload)):null;
   const cursor=z.number().int().nonnegative().parse(body.cursor||0),reset=incremental&&(!current||body.base!==current.id);
   const water=await binding().prepare('SELECT COALESCE(MAX(seq),0) AS seq FROM catalog_archive_changes').first<{seq:number}>(),sequence=water?.seq||0;
-  const metadata=incremental?JSON.stringify({incremental:true,base:current?.id||null,sequence}):null;
-  await binding().batch([
-   binding().prepare('INSERT INTO archive_batches(id,state,created_at,cutoff,manifest) VALUES(?,?,?,?,?)').bind(id,'building',cutoff,cutoff,metadata),
-   incremental&&!reset?binding().prepare(COPY_ARCHIVE_DELTA_SQL).bind(id,id,cutoff,cursor,sequence):binding().prepare(COPY_ARCHIVE_BATCH_SQL).bind(id,id,cutoff),
-  ]);
-  const count=await binding().prepare('SELECT COUNT(*) AS n FROM archive_batch_rows WHERE batch_id=?').bind(id).first<{n:number}>();return Response.json({id,cutoff,candidates:count?.n||0,sequence,reset,base:current?.id||null,baseOffers:current?.offers||0});
+  const metadata=JSON.stringify({incremental,base:current?.id||null,sequence,fromSequence:cursor,reset,staged:false,stageCursor:''});
+  await binding().prepare('INSERT INTO archive_batches(id,state,created_at,cutoff,manifest) VALUES(?,?,?,?,?)').bind(id,'building',cutoff,cutoff,metadata).run();
+  return Response.json({id,cutoff,candidates:0,sequence,reset,staged:false,base:current?.id||null,baseOffers:current?.offers||0});
  }
  const id=uuid.parse(body.id),batch=await one<{state:string;cutoff:string;manifest:string|null}>('archive_batches',{id});
  if(batch?.state==='published'&&body.action==='publish'&&batch.manifest&&JSON.stringify(validateArchiveManifest(body.manifest))===batch.manifest)return Response.json({published:true,...JSON.parse(batch.manifest)});
  if(batch?.state!=='building')throw new HttpError(409,'Bu katalog hazırlık durumunda değil.');
+ if(body.action==='stage'){
+  const meta=batch.manifest?JSON.parse(batch.manifest):{};if(meta.staged!==false)return Response.json({staged:true});
+  const all=!meta.incremental||meta.reset,query=binding().prepare(stageSourcesSql(all));
+  const ids=(await query.bind(meta.stageCursor||'',batch.cutoff,...(all?[]:[meta.fromSequence,meta.sequence])).all<{id:string}>()).results.map(r=>r.id),next=ids.at(-1)||meta.stageCursor||'',done=ids.length<STAGING_PAGE;
+  const statements=[];if(ids.length)statements.push(binding().prepare(copyStageSql(ids.length)).bind(id,id,...ids,batch.cutoff));
+  statements.push(binding().prepare('UPDATE archive_batches SET manifest=? WHERE id=? AND state=\'building\'').bind(JSON.stringify({...meta,stageCursor:next,staged:done}),id));
+  await binding().batch(statements);return Response.json({staged:done,cursor:next,copied:ids.length});
+ }
  if(body.action==='rows'){const ids=z.array(z.string().min(1).max(100)).min(1).max(ARCHIVE_PAYLOAD_PAGE).parse(body.sources);const result=await binding().prepare('SELECT source_id,store_id,url,checked_at,payload FROM archive_batch_rows WHERE batch_id=? AND source_id IN ('+ids.map(()=>'?').join(',')+')').bind(id,...ids).all();return Response.json(result.results);}
  if(body.action==='verify-files'){
   const manifest=validateArchiveManifest(body.manifest);if(manifest.id!==id||manifest.cutoff!==batch.cutoff)throw new HttpError(400,'Yayın sürümü uyuşmuyor.');
@@ -76,6 +82,7 @@ export async function POST(request:Request){try{
   const row=await one<{payload:string;checked_at:string}>('catalog_snapshots',{id:input.sourceId});if(!row)throw new HttpError(404,'Görselin ürün kaydı yok.');const record=upgradeSnapshotReader(validateSnapshot(JSON.parse(row.payload),storeCatalog,Date.parse(row.checked_at)));if(record?.product.image!==input.source)throw new HttpError(400,'Ürünün görsel kaynağı uyuşmuyor.');const image=await archiveBucket().head(input.imageKey);if(!image||image.httpMetadata?.contentType!=='image/webp')throw new HttpError(400,'Görsel dosyası bulunamadı.');await binding().prepare('INSERT OR IGNORE INTO archive_image_cache(url,image_key,bytes,original_bytes) VALUES(?,?,?,?)').bind(input.source,input.imageKey,image.size,input.originalBytes).run();return Response.json({saved:true});
  }
  if(body.action==='publish'){
+  if(batch.manifest&&JSON.parse(batch.manifest).staged===false)throw new HttpError(409,'Hazırlık sayfaları tamamlanmadan yayın açılamaz.');
   const manifest=validateArchiveManifest(body.manifest);if(manifest.id!==id||manifest.cutoff!==batch.cutoff)throw new HttpError(400,'Katalog sürümü uyuşmuyor.');
   const count=await binding().prepare('SELECT COUNT(*) AS n,COALESCE(SUM(ready=1),0) AS ready FROM archive_batch_rows WHERE batch_id=?').bind(id).first<{n:number;ready:number}>();
   const metadata=batch.manifest?JSON.parse(batch.manifest):null;
