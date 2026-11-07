@@ -1,4 +1,5 @@
 import {loadPublicationCheckpoint,savePublicationCheckpoint} from './publication-checkpoint';
+import {transferPrepared} from './prepared-transfer';
 import {retryNetwork,TransferError} from './reliable-transfer';
 import {maintainArchive,withArchiveCapacity} from './archive-maintenance';
 import {ARCHIVE_READY_PAGE,ARCHIVE_PAYLOAD_PAGE} from '../../src/lib/archive-runtime-bounds';
@@ -27,7 +28,7 @@ async function object(value:unknown){const bytes=gzipSync(JSON.stringify(value))
 async function save(){db.exec('PRAGMA wal_checkpoint(TRUNCATE)');const copy=directory+'/state-'+crypto.randomUUID()+'.sqlite';try{db.prepare('VACUUM INTO ?').run(copy);const bytes=gzipSync(readFileSync(copy));await savePublicationCheckpoint(site+'/api/archive-publisher-state',headers,bytes);}finally{if(existsSync(copy))unlinkSync(copy);}}
 async function status(value:unknown){try{await fetch(site+'/api/archive-publisher-state',{method:'POST',headers:{...headers,'content-type':'application/json'},body:JSON.stringify(value),signal:AbortSignal.timeout(30000)});}catch{/* Status never replaces the durable state. */}}
 async function run(){
- await maintainArchive(site,headers,64);
+ await maintainArchive(site,headers,16);
  await status({stage:'changes'});
  const batch=await withArchiveCapacity(()=>call('archive-build',{action:'begin',incremental:true,recover:true,id:crypto.randomUUID(),base:getMeta(db,'base'),cursor:Number(getMeta(db,'readSequence')||getMeta(db,'cursor')||0)}),()=>maintainArchive(site,headers,64)),id=batch.id;
  if(batch.staged===false){let pages=0;for(;;){const part=await call('archive-build',{action:'stage',id});if(++pages%100===0)console.log(JSON.stringify({phase:'staging',pages}));if(part.staged)break;}}
@@ -61,7 +62,7 @@ async function run(){
  // Only current, fully prepared delta rows are marked ready in this frozen batch.
  await status({stage:'publishing',changed});
  const readyDelta=all.filter(row=>delta.has(row.source_id)&&(db.prepare('SELECT fingerprint FROM observations WHERE source_id=?').get(row.source_id) as any).fingerprint===row.fingerprint);
- const newReady=readyDelta.filter(row=>readyOnServer.get(row.source_id)!==row.image_key);for(let i=0;i<newReady.length;i+=ARCHIVE_READY_PAGE)await call('archive-build',{action:'ready',id,rows:newReady.slice(i,i+ARCHIVE_READY_PAGE).map(row=>({sourceId:row.source_id,imageKey:row.image_key,originalBytes:row.original_bytes}))});
+ const newReady=readyDelta.filter(row=>readyOnServer.get(row.source_id)!==row.image_key);await transferPrepared(newReady,rows=>call('archive-build',{action:'ready',id,rows:rows.map(row=>({sourceId:row.source_id,imageKey:row.image_key,originalBytes:row.original_bytes}))}));
  if(!all.length)throw new Error('Henüz fiyatı ve görseli tamamlanmış ürün yok; önceki yayın korunuyor.');
  const grouped=new Map<string,any[]>();for(const row of all){const part=partition(row.preview.key),values=grouped.get(part)||[];values.push({storeId:row.store_id,preview:row.preview});grouped.set(part,values);}
  const chunks:ReadyArchive['chunks']=[],chunkJobs:any[][]=[];let productCount=0;

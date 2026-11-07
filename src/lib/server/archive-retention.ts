@@ -7,7 +7,7 @@ import {RETIRED_ROWS_SQL,backupBeforeRemoval} from '../archive-retention';
 export async function retireArchivePage(){
  const active=await one<{payload:string}>('catalog_collection_runs',{id:'archive-active'});
  if(!active)return {removed:0,done:true};
- const rows=(await binding().prepare(RETIRED_ROWS_SQL).bind(JSON.parse(active.payload).id).all<Record<string,unknown>>()).results;
+ const current=JSON.parse(active.payload),rows=(await binding().prepare(RETIRED_ROWS_SQL).bind(current.id,current.cutoff).all<Record<string,unknown>>()).results;
  if(!rows.length)return {removed:0,done:true};
  let key='';const removed=await backupBeforeRemoval(rows,async rows=>{
  const bytes=new TextEncoder().encode(JSON.stringify({version:1,rows}));

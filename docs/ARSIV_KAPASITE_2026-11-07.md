@@ -3,7 +3,7 @@
 183.118 bağlantılık ilk tarama kuyruğu korunur. Fiyatlar, görseller, sepetler ve
 hazır sürümler sıfırlanmaz. Eski yayımlanmış hazırlık kopyaları 250 satırlık
 sayfalar halinde R2'ye içerik özetiyle yedeklenir. Dosyanın boyutu ve özeti
-doğrulanmadan D1'den çıkarılmaz. Aktif, henüz yayımlanmamış ve eski dosya
+doğrulanmadan D1'den çıkarılmaz. Aktif, hâlâ yayımlanabilecek hazırlıklar ve eski dosya
 indeksi olmayan sürümler korunur. Bakım tarama ve yayın öncesinde çalışır;
 her iki süreç de yarım kalan bakımı güvenle tekrar edebilir.
 
@@ -19,3 +19,12 @@ başlatılmaz. Mevcut fiyat ve görseller yeniden kullanılmaya devam eder.
 
 Yeni kontroller: `tests/archive-capacity-2026-11-07.test.ts`. Eski test takımları
 bu değişiklik için çalıştırılmaz.
+
+Aktif sürümün kontrol tarihinden eski yarım hazırlıklar artık yayımlanamayacağı
+için aynı doğrulanmış yedekleme işlemine dahildir. Yeni hazırlık 500 kayıttan
+büyük kopyalama yapmaz; kaynak kimlikleri tek JSON parametresinde gönderilir.
+İlerleme her sayfada saklanır; tamamlanmamış hazırlık yayımlanamaz. Hazır
+teklif aktarımı en fazla dört eşzamanlı küçük istekle yürür. D1 geçici yük
+sınırında bekleme/yeniden deneme, yer yetersizliğinde doğrulanmış yedekle
+alan açma vardır. Tamamlandığı GitHub üzerinden doğrulanan eski işçinin
+kilidi güvenli kontrol noktası korunarak serbest bırakılabilir.
