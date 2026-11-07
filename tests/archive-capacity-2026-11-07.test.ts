@@ -5,7 +5,8 @@ import {RETIRED_ROWS_SQL,backupBeforeRemoval} from '../src/lib/archive-retention
 import {savePublicationCheckpoint,loadPublicationCheckpoint,CHECKPOINT_PART_BYTES} from '../scripts/catalog/publication-checkpoint';
 import {maintainArchive,withArchiveCapacity} from '../scripts/catalog/archive-maintenance';
 import {completedWorkerRecovery} from '../src/lib/archive-worker-recovery';
-import {stageSourcesSql,copyStageSql,STAGING_PAGE} from '../src/lib/archive-staging';
+import {stageSourcesSql,copyStageSql,STAGING_PAGE,RECOVER_ACTIVE_BUILD_SQL} from '../src/lib/archive-staging';
+test('stale publisher checkpoint resumes the existing active-base preparation without recopying prices',()=>{const db=new DatabaseSync(':memory:');db.exec('CREATE TABLE archive_batches(id TEXT,state TEXT,cutoff TEXT,manifest TEXT)');db.prepare('INSERT INTO archive_batches VALUES(?,?,?,?)').run('obsolete','building','2026-01-01',JSON.stringify({base:'stale-client-base',stageCursor:'old'}));db.prepare('INSERT INTO archive_batches VALUES(?,?,?,?)').run('resumable','building','2026-02-01',JSON.stringify({base:'active-base',stageCursor:'saved-cursor',staged:false}));const row=db.prepare(RECOVER_ACTIVE_BUILD_SQL).get('active-base')!;assert.equal(row.id,'resumable');assert.equal(JSON.parse(String(row.manifest)).stageCursor,'saved-cursor');db.close();});
 import {workerCompleted} from '../scripts/catalog/completed-worker';
 import {transferPrepared} from '../scripts/catalog/prepared-transfer';
 test('prepared offers reuse their records with at most four small concurrent transfers',async()=>{let active=0,maximum=0;const sent:number[]=[];await transferPrepared(Array.from({length:95},(_,i)=>i),async rows=>{assert.ok(rows.length<=10);maximum=Math.max(maximum,++active);await new Promise(r=>setTimeout(r,2));sent.push(...rows);active--;});assert.equal(maximum,4);assert.deepEqual(sent.sort((a,b)=>a-b),Array.from({length:95},(_,i)=>i));});
