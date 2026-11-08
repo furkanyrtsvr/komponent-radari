@@ -1,0 +1,31 @@
+name: Complete archived product images
+on:
+  schedule:
+    - cron: '7 * * * *'
+  workflow_dispatch:
+    inputs:
+      minutes:
+        description: Image queue session minutes; checkpointed progress resumes next run
+        default: '40'
+        required: true
+permissions:
+  contents: read
+concurrency:
+  group: durable-product-image-queue
+  cancel-in-progress: false
+jobs:
+  images:
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm run install:ci
+      - name: Complete missing images without changing product prices
+        env:
+          CATALOG_INGEST_SECRET: ${{ secrets.CATALOG_INGEST_SECRET }}
+          IMAGE_QUEUE_MINUTES: ${{ inputs.minutes || '40' }}
+        run: node --import tsx scripts/catalog/image-queue-worker.ts

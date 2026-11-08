@@ -3,7 +3,7 @@ import {archivePreviews} from '../../src/lib/archive-preview';
 import {imagePath} from '../../src/lib/ready-archive';
 import {storeCatalog} from '../../src/lib/catalog';
 import {reusableImage} from './archive-image-queue';
-import {partition} from './incremental-state';
+import {partition,hash} from './incremental-state';
 
 /** Image preparation must never gate a verified price. This table is temporary:
  * the full catalog lives in R2, not in another permanent D1/SQLite price copy. */
@@ -31,7 +31,7 @@ export async function preparePriceCatalog(db:DatabaseSync,cutoff:string){
    const cached=sourceImage?imageFor.get(sourceImage) as any:undefined;
    const old=previous?.fingerprint===row.fingerprint?{key:previous.image_key,bytes:previous.bytes,original_bytes:previous.original_bytes}:undefined;
    const image=reusableImage(cached)?cached:reusableImage(old)?old:null;
-   const entry={source_id:row.source_id,store_id:row.store_id,url:row.url,checked_at:row.checked_at,payload:row.payload,fingerprint:row.fingerprint,image_key:image?.key||null,bytes:image?.bytes||0,original_bytes:image?.original_bytes||0,preview:{...preview,image:image?imagePath(image.key):null,imagePending:!image}};
+   const entry={source_id:row.source_id,store_id:row.store_id,url:row.url,checked_at:row.checked_at,payload:row.payload,fingerprint:row.fingerprint,image_key:image?.key||null,bytes:image?.bytes||0,original_bytes:image?.original_bytes||0,preview:{...preview,image:image?imagePath(image.key):sourceImage?'/api/archive-image-source/'+hash(sourceImage)+'.webp':null,imagePending:!image}};
    put.run(row.store_id+':'+(preview.canonicalUrl||row.url),row.source_id,row.store_id,row.checked_at,partition(preview.key),partition(row.url),JSON.stringify(entry));accepted=true;break;
   }
   if(!accepted)rejected++;

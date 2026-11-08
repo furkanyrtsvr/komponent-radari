@@ -7,11 +7,13 @@ export const digest=(bytes:Uint8Array|string)=>createHash('sha256').update(bytes
 export function safeImageUrl(raw:string){const u=new URL(raw);if(u.protocol!=='https:'||u.username||u.password||u.port||isIP(u.hostname.replace(/^\[|\]$/g,''))||!u.hostname.includes('.')||/\.(?:localhost|local|internal|test)$/.test(u.hostname)||/ozdisan-share-default|no[-_]?image|placeholder|\/logo[.\-_]/i.test(u.pathname))throw new Error('Ürünün gerçek, herkese açık görseli gerekli.');u.hash='';return u;}
 export async function compactProductImage(bytes:Uint8Array){
  if(!bytes.length||bytes.length>8_000_000)throw new Error('Görsel dosyası çok büyük.');
- const input=sharp(bytes,{limitInputPixels:36_000_000,failOn:'error'}),meta=await input.metadata();
- if(!['jpeg','png','webp','avif'].includes(meta.format||'')||!meta.width||!meta.height)throw new Error('Görsel biçimi desteklenmiyor.');
- const result=await input.rotate().resize({width:800,height:800,fit:'inside',withoutEnlargement:true}).webp({quality:84,effort:5,smartSubsample:true}).toBuffer({resolveWithObject:true});
- if(result.data.length>500000)throw new Error('Hazır görsel boyut sınırını aşıyor.');
- return {bytes:result.data,width:result.info.width,height:result.info.height,key:'images/'+digest(result.data)+'.webp',originalBytes:bytes.length};
+ const input=sharp(bytes,{limitInputPixels:36_000_000,failOn:'error',page:0,pages:1}),meta=await input.metadata();
+ if(!['jpeg','png','webp','avif','gif'].includes(meta.format||'')||!meta.width||!meta.height)throw new Error('Görsel biçimi desteklenmiyor.');
+ for(const [size,quality] of [[800,78],[800,68],[640,68],[512,64],[384,60]] as const){
+  const result=await sharp(bytes,{limitInputPixels:36_000_000,failOn:'error',page:0,pages:1}).rotate().resize({width:size,height:size,fit:'inside',withoutEnlargement:true}).webp({quality,effort:4,smartSubsample:true}).toBuffer({resolveWithObject:true});
+  if(result.data.length<=120000)return {bytes:result.data,width:result.info.width,height:result.info.height,key:'images/'+digest(result.data)+'.webp',originalBytes:bytes.length};
+ }
+ throw new Error('Görsel 0,12 MB sınırına kaliteli biçimde sığdırılamadı.');
 }
 type Policy={text:string;delay:number;next:number};
 const policies=new Map<string,Promise<Policy>>(),tails=new Map<string,Promise<void>>();

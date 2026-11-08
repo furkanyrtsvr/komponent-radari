@@ -48,6 +48,8 @@ Uygulama yerelde çalıştırılarak alınan dört ekran görüntüsü.
 - Karşılaştırma sonuçlarını seçerek hata bildirme; özel geri bildirim konuşmaları, yönetici yanıtları ve inceleme durumları. [Geri bildirim rehberi](docs/GERI_BILDIRIM.md).
 - Yöneticiye tüm bildirim ve konuşmaları tek Markdown dosyasında indirme; ürün keşfet bağlamıyla hata bildirme. [Model araması ve kategori sayfalaması](docs/KATALOG_ARAMA_2026-10-23.md).
 
+Görseller fiyat yayınından bağımsız, kalıcı kuyrukla saatlik tamamlanır; mevcut dosyalar tekrar indirilmez. Yeni WebP görseller en fazla 0,12 MB olarak saklanır. [Görsel kuyruğu rehberi](docs/GORSEL_KUYRUGU_2026-11-08.md).
+
 ## Mağazalar
 
 Direnç.net, Robotistan, Robolink Market, Robot Sepeti, SAMM Market, Motorobit, Özdisan, Robo90, Komponentci, Robiz, Robotzade, Robitshop, Robocombo, Robotronik, Pil Paketi, Pil Sitesi, E komponent, Ulutaş Elektronik, Hobi Devre ve F1 Depo.

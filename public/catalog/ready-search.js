@@ -13,7 +13,7 @@ export function searchReadyProducts(products,options,at=Date.now()){
   const sources=p.sources.filter(s=>options.store==='all'||s.storeId===options.store);
   if(options.query&&!matchesTitle(matches,p)&&!sources.some(s=>matchesTitle(matches,s)))continue;
   const urls=new Set(sources.map(s=>s.url));
-  const previews=p.previews.filter(v=>urls.has(v.url)&&v.key===p.key&&Number.isInteger(v.price)&&v.price>0&&Date.parse(v.checkedAt)<=at&&(/^\/api\/archive-image\/[a-f0-9]{64}\.webp$/.test(v.image||'')||v.image===null&&v.imagePending===true));
+  const previews=p.previews.filter(v=>urls.has(v.url)&&v.key===p.key&&Number.isInteger(v.price)&&v.price>0&&Date.parse(v.checkedAt)<=at&&(/^\/api\/archive-image\/[a-f0-9]{64}\.webp$/.test(v.image||'')||v.imagePending===true&&(v.image===null||/^\/api\/archive-image-source\/[a-f0-9]{64}\.webp$/.test(v.image))));
   const readyUrls=new Set(previews.map(v=>v.url)),readySources=sources.filter(s=>readyUrls.has(s.url));
   if(!readySources.length||options.query&&!matchesTitle(matches,p)&&!readySources.some(s=>matchesTitle(matches,s)))continue;
   if(count>=offset&&selected.length<40)selected.push({...p,sources:readySources,previews:previews.map(v=>({...v,archiveState:at-Date.parse(v.checkedAt)<12*3600000?'fresh':'expired'}))});count++;

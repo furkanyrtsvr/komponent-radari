@@ -1,3 +1,4 @@
+import {imageSourcePath} from '../image-queue';
 import {ByteCache,boundedText} from '../archive-runtime-bounds';
 import {env} from 'cloudflare:workers';
 import {binding,one,listIn,HttpError} from './db';
@@ -30,15 +31,15 @@ export async function fileSnapshotRows(batch:ReadyArchive,urls:string[]){const i
 export async function readyRows(urls:string[],id?:string){const batch=id?await publishedArchive(id):await selectedArchive();if(!batch)return {batch:null,rows:[] as BatchRow[]};if(batch.sourceIndex)return {batch,rows:await fileSnapshotRows(batch,urls)};return {batch,rows:await listIn<BatchRow>('archive_batch_rows','url',[...new Set(urls.flatMap(aliases))],{batch_id:batch.id,ready:1})};}
 export async function readyPreviews(urls:string[],id?:string){
  const {batch,rows}=await readyRows(urls,id),values=await archivePreviews(urls,storeCatalog,async()=>rows);
- return values.map(p=>{const row=rows.find(r=>aliases(p.url).includes(r.url));return row&&p.price?{...p,image:row.image_key&&archiveImageKey(row.image_key)?imagePath(row.image_key):null,imagePending:!row.image_key,collectorManaged:false,collectorPending:false,message:'Hazır B kataloğu · yayın: '+batch!.preparedAt+' · gerçek fiyat kontrolü: '+p.checkedAt}:{...p,image:null,price:null,message:'Bu ürün son hazır B kataloğunda bulunmuyor. Canlı okuma için A modunu kullanabilirsin.'};});
+ return Promise.all(values.map(async p=>{const row=rows.find(r=>aliases(p.url).includes(r.url));return row&&p.price?{...p,image:row.image_key&&archiveImageKey(row.image_key)?imagePath(row.image_key):await imageSourcePath(p.image),imagePending:!row.image_key,collectorManaged:false,collectorPending:false,message:'Hazır B kataloğu · yayın: '+batch!.preparedAt+' · gerçek fiyat kontrolü: '+p.checkedAt}:{...p,image:null,price:null,message:'Bu ürün son hazır B kataloğunda bulunmuyor. Canlı okuma için A modunu kullanabilirsin.'};}));
 }
 export async function readyProduct(store:{id:string;domain:string},url:string){
  const {batch,rows}=await readyRows([url]);const row=rows.filter(r=>r.store_id===store.id).sort((a,b)=>b.checked_at.localeCompare(a.checked_at))[0];
  if(!batch||!row)throw new HttpError(409,'Ürün son hazır B kataloğunda yok. B modunda mağaza taraması yapılmaz; A modunu kullanabilirsin.');
  const record=upgradeSnapshotReader(validateSnapshot(JSON.parse(row.payload),storeCatalog,Date.parse(row.checked_at)));if(!record||record.checkedAt!==row.checked_at)throw new HttpError(409,'Arşiv fiyatı ve satış birimi doğrulanamadı.');const p=snapshotProduct(record);
- return {...p,image:row.image_key&&archiveImageKey(row.image_key)?imagePath(row.image_key):null,imagePending:!row.image_key,readWarning:'Hazır B kataloğu · gerçek fiyat kontrolü: '+row.checked_at};
+ return {...p,image:row.image_key&&archiveImageKey(row.image_key)?imagePath(row.image_key):await imageSourcePath(p.image),imagePending:!row.image_key,readWarning:'Hazır B kataloğu · gerçek fiyat kontrolü: '+row.checked_at};
 }
-export async function readySnapshotSources(urls:string[]){const {rows}=await readyRows(urls);return rows.map(r=>{const record=JSON.parse(r.payload);record.product.image=r.image_key&&archiveImageKey(r.image_key)?imagePath(r.image_key):null;return {...r,payload:JSON.stringify(record)};});}
+export async function readySnapshotSources(urls:string[]){const {rows}=await readyRows(urls);return Promise.all(rows.map(async r=>{const record=JSON.parse(r.payload);record.product.image=r.image_key&&archiveImageKey(r.image_key)?imagePath(r.image_key):await imageSourcePath(record.product.image);return {...r,payload:JSON.stringify(record)};}));}
 export async function readyCatalogPage(options:{query:string;group:string;store:string;page:number}){
  const batch=await selectedArchive();if(!batch)throw new HttpError(503,'İlk hazır B kataloğu hazırlanıyor. Ürünler hazır olmadan listelenmez.');
  // A packed, immutable catalog is also used by export/check clients. Browser

@@ -87,13 +87,16 @@ function ProductVisual({
   image,
   name,
   onImageError,
+  retryVersion,
 }: {
   group: string;
   image?: string | null;
   name: string;
   onImageError?: (image: string) => void;
+  retryVersion?:number;
 }) {
   const [failed, setFailed] = useState<string | null>(null);
+  useEffect(()=>{if(image?.startsWith('/api/archive-image-source/'))setFailed(null);},[image,retryVersion]);
   const Icon =
     categoryIcons.find(([pattern]) => pattern.test(group))?.[1] ||
     PackageSearch;
@@ -102,7 +105,7 @@ function ProductVisual({
       {image && failed !== image ? (
         <img src={image} alt={name} loading="lazy" referrerPolicy="no-referrer" onError={() => {setFailed(image);onImageError?.(image);}} />
       ) : (
-        <><Icon size={50} strokeWidth={1.25} /><small className="catalog-image-note">{image?'Mağaza görseli yüklenemedi':'Mağaza görseli henüz yok'}</small></>
+        <><Icon size={50} strokeWidth={1.25} /><small className="catalog-image-note">{image?.startsWith('/api/archive-image-source/')?'Görsel hazırlanıyor':image?'Mağaza görseli yüklenemedi':'Mağaza görseli henüz yok'}</small></>
       )}
     </div>
   );
@@ -138,6 +141,8 @@ export function MerchantCatalog({
     Record<string, CatalogPreview>
   >({});
   const [failedImages, setFailedImages] = useState<string[]>([]);
+  const [imageRetry,setImageRetry]=useState(0);
+  useEffect(()=>{const timer=setInterval(()=>{setFailedImages(current=>current.filter(image=>!image.startsWith('/api/archive-image-source/')));setImageRetry(v=>v+1);},180000);return()=>clearInterval(timer);},[]);
   const [archiveReload,setArchiveReload]=useState(0);
   const attemptedPreviews = useRef(new Set<string>());
   const previewLive = useRef(true);
@@ -178,7 +183,7 @@ export function MerchantCatalog({
   },[archiveMode,archiveReload]);
   useEffect(() => {
     if (!manifest||(archiveMode&&!edition)) return;
-    const nextWorker = new Worker(archiveMode?'/catalog/ready-worker.js?v=priced-20261107-3':"/catalog/search-worker.js?v=20261023-discovery2", {type:"module"});
+    const nextWorker = new Worker(archiveMode?'/catalog/ready-worker.js?v=image-queue-20261108':"/catalog/search-worker.js?v=20261023-discovery2", {type:"module"});
     worker.current = nextWorker;
     nextWorker.onmessage = (event: MessageEvent<SearchResponse>) => {
       if (event.data.requestId !== request.current) return;
@@ -271,7 +276,7 @@ export function MerchantCatalog({
   const imageFor = (row: IndexedProduct | null) =>
     row?.sources
       .map((source) => previews[source.url]?.key === row.key ? previews[source.url]?.image : offers.find(offer => offer.product_url === source.url && catalogIdentity({name:offer.title}) === row.key)?.image_url)
-      .sort((a,b)=>Number(/witcdn\./i.test(a || ''))-Number(/witcdn\./i.test(b || '')))
+      .sort((a,b)=>Number(a?.startsWith('/api/archive-image-source/'))-Number(b?.startsWith('/api/archive-image-source/'))||Number(/witcdn\./i.test(a || ''))-Number(/witcdn\./i.test(b || '')))
       .find(image => Boolean(image) && !failedImages.includes(image!)) || null;
   const imageFailed = (image: string) => setFailedImages(current => current.includes(image) ? current : [...current,image]);
   const selectedStore = manifest?.stores.find(
@@ -400,7 +405,7 @@ export function MerchantCatalog({
               group={row.group}
               image={imageFor(row)}
               name={row.shortName || row.name}
-              onImageError={imageFailed}
+              retryVersion={imageRetry} onImageError={imageFailed}
             />
             <h3>{row.shortName || row.name}</h3>
             <p className="merchant-card-price">{(() => {
@@ -466,7 +471,7 @@ export function MerchantCatalog({
                   group={selectedProduct.group}
                   image={imageFor(selectedProduct)}
                   name={selectedProduct.shortName || selectedProduct.name}
-                  onImageError={imageFailed}
+                  retryVersion={imageRetry} onImageError={imageFailed}
                 />
                 <DialogHeader>
                   <span className="category-tag">{selectedProduct.group}</span>

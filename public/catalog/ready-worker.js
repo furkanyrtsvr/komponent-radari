@@ -1,4 +1,4 @@
-import {decodeReadyChunk,searchReadyProducts,indexReadyProducts} from './ready-search.js?v=priced-20261107-3';
+import {decodeReadyChunk,searchReadyProducts,indexReadyProducts} from './ready-search.js?v=image-queue-20261108';
 const editions=new Map(),loading=new Map();let latest=0,active=null;
 function partial(state){if(state.failed||!active||active.manifest.id!==state.id)return;const found=searchReadyProducts(state.parts.filter(Boolean).flat(),active);self.postMessage({requestId:active.requestId,...found,count:null,hasMore:false,done:false,progress:state.finished,chunks:state.parts.length});}
 async function loadEdition(manifest){
